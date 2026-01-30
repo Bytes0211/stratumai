@@ -29,6 +29,8 @@ from .exceptions import (
 from .models import ChatRequest, ChatResponse, Message, Usage
 from .providers.base import BaseProvider
 from .providers.openai import OpenAIProvider
+from .cost_tracker import CostTracker, CostEntry
+from .retry import RetryConfig, with_retry
 from .providers.anthropic import AnthropicProvider
 from .providers.google import GoogleProvider
 from .providers.deepseek import DeepSeekProvider
@@ -62,6 +64,12 @@ __all__ = [
     "generate_cache_key",
     "get_cache_stats",
     "clear_cache",
+    # Cost Tracking
+    "CostTracker",
+    "CostEntry",
+    # Retry
+    "RetryConfig",
+    "with_retry",
     # Exceptions
     "LLMAbstractionError",
     "ProviderError",
