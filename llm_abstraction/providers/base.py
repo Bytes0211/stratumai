@@ -116,3 +116,36 @@ class BaseProvider(ABC):
             True if supported, False otherwise
         """
         return model in self.get_supported_models()
+    
+    def supports_caching(self, model: str) -> bool:
+        """
+        Check if model supports prompt caching.
+        
+        Args:
+            model: Model name to check
+            
+        Returns:
+            True if model supports prompt caching, False otherwise
+        """
+        # To be implemented by providers that support caching
+        return False
+    
+    def _calculate_cache_cost(
+        self, 
+        cache_creation_tokens: int,
+        cache_read_tokens: int,
+        model: str
+    ) -> float:
+        """
+        Calculate cost for cached tokens.
+        
+        Args:
+            cache_creation_tokens: Number of tokens written to cache
+            cache_read_tokens: Number of tokens read from cache
+            model: Model name used
+            
+        Returns:
+            Cost in USD for cache operations
+        """
+        # Base implementation returns 0, override in providers that support caching
+        return 0.0

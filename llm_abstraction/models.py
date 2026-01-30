@@ -11,6 +11,7 @@ class Message:
     role: Literal["system", "user", "assistant"]
     content: str
     name: Optional[str] = None  # For multi-agent scenarios
+    cache_control: Optional[dict] = None  # For providers that support prompt caching (Anthropic, OpenAI)
 
 
 @dataclass
@@ -19,9 +20,12 @@ class Usage:
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
-    cached_tokens: int = 0
+    cached_tokens: int = 0  # Tokens retrieved from cache
+    cache_creation_tokens: int = 0  # Tokens written to cache (Anthropic)
+    cache_read_tokens: int = 0  # Tokens read from cache (Anthropic)
     reasoning_tokens: int = 0  # For reasoning models like o1/o3
     cost_usd: float = 0.0
+    cost_breakdown: Optional[dict] = None  # Detailed cost breakdown by token type
 
 
 @dataclass

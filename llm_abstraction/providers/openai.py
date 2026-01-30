@@ -55,6 +55,11 @@ class OpenAIProvider(BaseProvider):
         """Return list of supported OpenAI models."""
         return list(OPENAI_MODELS.keys())
     
+    def supports_caching(self, model: str) -> bool:
+        """Check if model supports prompt caching."""
+        model_info = OPENAI_MODELS.get(model, {})
+        return model_info.get("supports_caching", False)
+    
     def chat_completion(self, request: ChatRequest) -> ChatResponse:
         """
         Execute chat completion request.
@@ -73,12 +78,17 @@ class OpenAIProvider(BaseProvider):
             raise InvalidModelError(request.model, self.provider_name)
         
         # Build OpenAI-specific request parameters
+        messages = []
+        for msg in request.messages:
+            message_dict = {"role": msg.role, "content": msg.content}
+            # Add cache_control if present and model supports caching
+            if msg.cache_control and self.supports_caching(request.model):
+                message_dict["cache_control"] = msg.cache_control
+            messages.append(message_dict)
+        
         openai_params = {
             "model": request.model,
-            "messages": [
-                {"role": msg.role, "content": msg.content}
-                for msg in request.messages
-            ],
+            "messages": messages,
             "temperature": request.temperature,
             "top_p": request.top_p,
             "frequency_penalty": request.frequency_penalty,
@@ -170,20 +180,35 @@ class OpenAIProvider(BaseProvider):
         usage_dict = raw_response.get("usage", {})
         
         # Extract token usage
+        prompt_details = usage_dict.get("prompt_tokens_details", {})
         usage = Usage(
             prompt_tokens=usage_dict.get("prompt_tokens", 0),
             completion_tokens=usage_dict.get("completion_tokens", 0),
             total_tokens=usage_dict.get("total_tokens", 0),
-            cached_tokens=usage_dict.get("prompt_tokens_details", {}).get(
-                "cached_tokens", 0
-            ),
+            cached_tokens=prompt_details.get("cached_tokens", 0),
+            cache_creation_tokens=prompt_details.get("cache_creation_input_tokens", 0),
+            cache_read_tokens=prompt_details.get("cached_tokens", 0),
             reasoning_tokens=usage_dict.get("completion_tokens_details", {}).get(
                 "reasoning_tokens", 0
             ),
         )
         
-        # Calculate cost
-        usage.cost_usd = self._calculate_cost(usage, raw_response["model"])
+        # Calculate cost including cache costs
+        base_cost = self._calculate_cost(usage, raw_response["model"])
+        cache_cost = self._calculate_cache_cost(
+            usage.cache_creation_tokens,
+            usage.cache_read_tokens,
+            raw_response["model"]
+        )
+        usage.cost_usd = base_cost + cache_cost
+        
+        # Add cost breakdown
+        if usage.cache_creation_tokens > 0 or usage.cache_read_tokens > 0:
+            usage.cost_breakdown = {
+                "base_cost": base_cost,
+                "cache_cost": cache_cost,
+                "total_cost": usage.cost_usd,
+            }
         
         return ChatResponse(
             id=raw_response["id"],
@@ -218,7 +243,7 @@ class OpenAIProvider(BaseProvider):
     
     def _calculate_cost(self, usage: Usage, model: str) -> float:
         """
-        Calculate cost in USD based on token usage.
+        Calculate cost in USD based on token usage (excluding cache costs).
         
         Args:
             usage: Token usage information
@@ -231,8 +256,43 @@ class OpenAIProvider(BaseProvider):
         cost_input = model_info.get("cost_input", 0.0)
         cost_output = model_info.get("cost_output", 0.0)
         
+        # Calculate non-cached prompt tokens
+        non_cached_prompt_tokens = usage.prompt_tokens - usage.cache_read_tokens
+        
         # Costs are per 1M tokens
-        input_cost = (usage.prompt_tokens / 1_000_000) * cost_input
+        input_cost = (non_cached_prompt_tokens / 1_000_000) * cost_input
         output_cost = (usage.completion_tokens / 1_000_000) * cost_output
         
         return input_cost + output_cost
+    
+    def _calculate_cache_cost(
+        self,
+        cache_creation_tokens: int,
+        cache_read_tokens: int,
+        model: str
+    ) -> float:
+        """
+        Calculate cost for cached tokens.
+        
+        Args:
+            cache_creation_tokens: Number of tokens written to cache
+            cache_read_tokens: Number of tokens read from cache
+            model: Model name used
+            
+        Returns:
+            Cost in USD for cache operations
+        """
+        model_info = OPENAI_MODELS.get(model, {})
+        
+        # Check if model supports caching
+        if not model_info.get("supports_caching", False):
+            return 0.0
+        
+        cost_cache_write = model_info.get("cost_cache_write", 0.0)
+        cost_cache_read = model_info.get("cost_cache_read", 0.0)
+        
+        # Costs are per 1M tokens
+        write_cost = (cache_creation_tokens / 1_000_000) * cost_cache_write
+        read_cost = (cache_read_tokens / 1_000_000) * cost_cache_read
+        
+        return write_cost + read_cost

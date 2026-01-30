@@ -6,6 +6,13 @@ accessing multiple frontier LLM providers through a consistent API.
 
 __version__ = "0.1.0"
 
+from .caching import (
+    ResponseCache,
+    cache_response,
+    clear_cache,
+    generate_cache_key,
+    get_cache_stats,
+)
 from .client import LLMClient, ProviderType
 from .exceptions import (
     AuthenticationError,
@@ -35,6 +42,12 @@ __all__ = [
     # Providers
     "BaseProvider",
     "OpenAIProvider",
+    # Caching
+    "ResponseCache",
+    "cache_response",
+    "generate_cache_key",
+    "get_cache_stats",
+    "clear_cache",
     # Exceptions
     "LLMAbstractionError",
     "ProviderError",

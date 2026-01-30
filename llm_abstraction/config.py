@@ -8,15 +8,21 @@ OPENAI_MODELS: Dict[str, Dict[str, Any]] = {
         "context": 128000,
         "cost_input": 10.0,  # Per 1M tokens
         "cost_output": 30.0,
+        "cost_cache_write": 12.5,  # 25% more than input
+        "cost_cache_read": 1.0,  # 90% discount on input
         "supports_vision": True,
         "supports_tools": True,
+        "supports_caching": True,
     },
     "gpt-5-mini": {
         "context": 128000,
         "cost_input": 2.0,
         "cost_output": 6.0,
+        "cost_cache_write": 2.5,
+        "cost_cache_read": 0.2,
         "supports_vision": True,
         "supports_tools": True,
+        "supports_caching": True,
     },
     "gpt-5-nano": {
         "context": 128000,
@@ -29,15 +35,21 @@ OPENAI_MODELS: Dict[str, Dict[str, Any]] = {
         "context": 128000,
         "cost_input": 2.5,
         "cost_output": 10.0,
+        "cost_cache_write": 3.125,
+        "cost_cache_read": 0.25,
         "supports_vision": True,
         "supports_tools": True,
+        "supports_caching": True,
     },
     "gpt-4.1-mini": {
         "context": 128000,
         "cost_input": 0.15,
         "cost_output": 0.60,
+        "cost_cache_write": 0.1875,
+        "cost_cache_read": 0.015,
         "supports_vision": True,
         "supports_tools": True,
+        "supports_caching": True,
     },
     "o1": {
         "context": 200000,
@@ -71,22 +83,31 @@ ANTHROPIC_MODELS: Dict[str, Dict[str, Any]] = {
         "context": 200000,
         "cost_input": 3.0,
         "cost_output": 15.0,
+        "cost_cache_write": 3.75,  # 25% more than input
+        "cost_cache_read": 0.30,  # 90% discount on input
         "supports_vision": True,
         "supports_tools": True,
+        "supports_caching": True,
     },
     "claude-3-5-haiku-20241022": {
         "context": 200000,
         "cost_input": 0.80,
         "cost_output": 4.0,
+        "cost_cache_write": 1.0,
+        "cost_cache_read": 0.08,
         "supports_vision": False,
         "supports_tools": True,
+        "supports_caching": True,
     },
     "claude-3-opus-20240229": {
         "context": 200000,
         "cost_input": 15.0,
         "cost_output": 75.0,
+        "cost_cache_write": 18.75,
+        "cost_cache_read": 1.50,
         "supports_vision": True,
         "supports_tools": True,
+        "supports_caching": True,
     },
 }
 
@@ -96,15 +117,21 @@ GOOGLE_MODELS: Dict[str, Dict[str, Any]] = {
         "context": 1000000,
         "cost_input": 1.25,
         "cost_output": 5.0,
+        "cost_cache_write": 1.5625,
+        "cost_cache_read": 0.125,
         "supports_vision": True,
         "supports_tools": True,
+        "supports_caching": True,
     },
     "gemini-2.5-flash": {
         "context": 1000000,
         "cost_input": 0.075,
         "cost_output": 0.30,
+        "cost_cache_write": 0.09375,
+        "cost_cache_read": 0.0075,
         "supports_vision": True,
         "supports_tools": True,
+        "supports_caching": True,
     },
     "gemini-2.5-flash-lite": {
         "context": 1000000,
