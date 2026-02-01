@@ -39,6 +39,7 @@ from .providers.groq import GroqProvider
 from .providers.grok import GrokProvider
 from .providers.ollama import OllamaProvider
 from .providers.openrouter import OpenRouterProvider
+from .router import Router, RoutingStrategy, ModelMetadata
 
 __all__ = [
     # Core client
@@ -71,6 +72,10 @@ __all__ = [
     # Retry
     "RetryConfig",
     "with_retry",
+    # Router
+    "Router",
+    "RoutingStrategy",
+    "ModelMetadata",
     # Exceptions
     "LLMAbstractionError",
     "ProviderError",
