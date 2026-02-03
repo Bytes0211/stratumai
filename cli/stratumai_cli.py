@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from llm_abstraction import LLMClient, ChatRequest, Message, Router, RoutingStrategy, get_cache_stats
+from llm_abstraction.caching import get_cache_entries, clear_cache
 from llm_abstraction.config import MODEL_CATALOG, PROVIDER_ENV_VARS
 from llm_abstraction.exceptions import InvalidProviderError, InvalidModelError, AuthenticationError
 from llm_abstraction.summarization import summarize_file
@@ -92,12 +93,17 @@ def chat(
         "--chunk-size",
         help="Chunk size in characters (default: 50000)"
     ),
+    auto_select: bool = typer.Option(
+        False,
+        "--auto-select",
+        help="Automatically select optimal model based on file type"
+    ),
 ):
     """Send a chat message to an LLM provider.
     
     Note: For multi-turn conversations with context, use 'stratumai interactive' instead.
     """
-    return _chat_impl(message, provider, model, temperature, max_tokens, stream, system, file, cache_control, chunked, chunk_size)
+    return _chat_impl(message, provider, model, temperature, max_tokens, stream, system, file, cache_control, chunked, chunk_size, auto_select=auto_select)
 
 
 def _chat_impl(
@@ -112,10 +118,25 @@ def _chat_impl(
     cache_control: bool,
     chunked: bool = False,
     chunk_size: int = 50000,
+    auto_select: bool = False,
     _conversation_history: Optional[List[Message]] = None,
 ):
     """Internal implementation of chat with conversation history support."""
     try:
+        # Auto-select model based on file type if enabled
+        if auto_select and file and not (provider and model):
+            from llm_abstraction.utils.model_selector import select_model_for_file
+            
+            try:
+                auto_provider, auto_model, reasoning = select_model_for_file(file)
+                provider = auto_provider
+                model = auto_model
+                console.print(f"\n[cyan]🤖 Auto-selected:[/cyan] {provider}/{model}")
+                console.print(f"[dim]   Reason: {reasoning}[/dim]\n")
+            except Exception as e:
+                console.print(f"[yellow]⚠ Auto-selection failed: {e}[/yellow]")
+                console.print("[dim]Falling back to manual selection...[/dim]\n")
+        
         # Track if we prompted for provider/model to determine if we should prompt for file
         prompted_for_provider = False
         prompted_for_model = False
@@ -681,9 +702,9 @@ def interactive(
     LARGE_FILE_THRESHOLD_KB = 500
     
     try:
-        # Helper function to load file with size validation
+        # Helper function to load file with size validation and intelligent extraction
         def load_file_content(file_path: Path, warn_large: bool = True) -> Optional[str]:
-            """Load file content with size restrictions and warnings."""
+            """Load file content with size restrictions, warnings, and intelligent extraction."""
             try:
                 # Check if file exists
                 if not file_path.exists():
@@ -701,16 +722,69 @@ def interactive(
                     console.print(f"[yellow]⚠ Large files consume significant tokens and may exceed model context limits[/yellow]")
                     return None
                 
-                # Warn about large files
+                # Check if file type supports intelligent extraction
+                extension = file_path.suffix.lower()
+                supports_extraction = extension in ['.csv', '.json', '.log', '.py'] or 'log' in file_path.name.lower()
+                
+                # For large files that support extraction, offer schema extraction
+                if supports_extraction and file_size > (LARGE_FILE_THRESHOLD_KB * 1024):
+                    console.print(f"[cyan]💡 Large {extension} file detected: {file_size_kb:.1f} KB[/cyan]")
+                    console.print("[cyan]This file supports intelligent extraction for efficient LLM processing[/cyan]")
+                    
+                    use_extraction = Confirm.ask(
+                        "Extract schema/structure instead of loading full file? (Recommended)",
+                        default=True
+                    )
+                    
+                    if use_extraction:
+                        try:
+                            from llm_abstraction.utils.csv_extractor import analyze_csv_file
+                            from llm_abstraction.utils.json_extractor import analyze_json_file
+                            from llm_abstraction.utils.log_extractor import extract_log_summary
+                            from llm_abstraction.utils.code_extractor import analyze_code_file
+                            
+                            if extension == '.csv':
+                                result = analyze_csv_file(file_path)
+                                content = result['schema_text']
+                                reduction = result['token_reduction_pct']
+                                console.print(f"[green]✓ Extracted CSV schema[/green] [dim]({reduction:.1f}% token reduction)[/dim]")
+                            elif extension == '.json':
+                                result = analyze_json_file(file_path)
+                                content = result.get('schema_text', str(result))
+                                reduction = result.get('token_reduction_pct', 0)
+                                console.print(f"[green]✓ Extracted JSON schema[/green] [dim]({reduction:.1f}% token reduction)[/dim]")
+                            elif extension in ['.log', '.txt'] and 'log' in file_path.name.lower():
+                                result = extract_log_summary(file_path)
+                                content = result['summary_text']
+                                reduction = result['token_reduction_pct']
+                                console.print(f"[green]✓ Extracted log summary[/green] [dim]({reduction:.1f}% token reduction)[/dim]")
+                            elif extension == '.py':
+                                result = analyze_code_file(file_path)
+                                content = result['structure_text']
+                                reduction = result['token_reduction_pct']
+                                console.print(f"[green]✓ Extracted code structure[/green] [dim]({reduction:.1f}% token reduction)[/dim]")
+                            else:
+                                # Fallback to raw content
+                                with open(file_path, 'r', encoding='utf-8') as f:
+                                    content = f.read()
+                                console.print(f"[green]✓ Loaded {file_path.name}[/green] [dim]({file_size_kb:.1f} KB, {len(content):,} chars)[/dim]")
+                            
+                            return content
+                        except Exception as e:
+                            console.print(f"[yellow]⚠ Extraction failed: {e}[/yellow]")
+                            console.print("[dim]Falling back to loading full file...[/dim]")
+                            # Fall through to normal loading
+                
+                # Warn about large files (if not using extraction)
                 if warn_large and file_size > (LARGE_FILE_THRESHOLD_KB * 1024):
                     console.print(f"[yellow]⚠ Large file detected: {file_size_kb:.1f} KB[/yellow]")
                     console.print(f"[yellow]⚠ This will consume substantial tokens and may incur significant costs[/yellow]")
                     
-                    if not Confirm.ask("Continue loading this file?", default=False):
+                    if not Confirm.ask("Continue loading full file?", default=False):
                         console.print("[dim]File load cancelled[/dim]")
                         return None
                 
-                # Read file content
+                # Read file content normally
                 with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
                 
@@ -857,12 +931,13 @@ def interactive(
         else:
             console.print(f"Provider: [cyan]{provider}[/cyan] | Model: [cyan]{model}[/cyan] | Context: [cyan]{context_window:,} tokens[/cyan]")
         
-        console.print("[dim]Commands: /file <path> | /attach <path> | /clear | /provider | /help | exit[/dim]")
+        console.print("[dim]Commands: /file <path> | /attach <path> | /clear | /save [path] | /provider | /help | exit[/dim]")
         console.print(f"[dim]File size limit: {MAX_FILE_SIZE_MB} MB | Ctrl+C to exit[/dim]\n")
         
         # Conversation loop
         staged_file_content = None  # For /attach command
         staged_file_name = None
+        last_response = None  # Track last assistant response for /save command
         
         while True:
             # Show staged file indicator
@@ -916,6 +991,54 @@ def interactive(
                     staged_file_name = None
                 else:
                     console.print("[dim]No staged files to clear[/dim]")
+                continue
+            
+            elif user_input.startswith('/save'):
+                # Save last response to file
+                if last_response is None:
+                    console.print("[yellow]⚠ No response to save yet[/yellow]")
+                    console.print("[dim]Send a message first to get a response, then use /save[/dim]")
+                    continue
+                
+                # Parse filename from command or prompt for it
+                parts = user_input.split(maxsplit=1)
+                if len(parts) > 1:
+                    save_path = Path(parts[1].strip()).expanduser()
+                else:
+                    # Prompt for filename
+                    default_name = f"response_{provider}_{model.split('-')[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+                    filename = Prompt.ask("Save as", default=default_name)
+                    save_path = Path(filename).expanduser()
+                
+                try:
+                    # Ensure parent directory exists
+                    save_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    # Prepare content with metadata
+                    content = f"""# AI Response
+
+**Provider:** {provider}  
+**Model:** {model}  
+**Timestamp:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
+**Tokens:** {last_response.usage.total_tokens:,} (In: {last_response.usage.prompt_tokens:,}, Out: {last_response.usage.completion_tokens:,})  
+**Cost:** ${last_response.usage.cost_usd:.6f}
+
+---
+
+{last_response.content}
+"""
+                    
+                    # Write to file
+                    with open(save_path, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                    
+                    file_size = save_path.stat().st_size
+                    console.print(f"[green]✓ Response saved to:[/green] {save_path}")
+                    console.print(f"[dim]  Size: {file_size:,} bytes ({len(last_response.content):,} chars)[/dim]")
+                
+                except Exception as e:
+                    console.print(f"[red]✗ Error saving file: {e}[/red]")
+                
                 continue
             
             elif user_input.lower() == '/provider':
@@ -1015,6 +1138,7 @@ def interactive(
                 console.print("  [green]/file <path>[/green]   - Load and send file immediately")
                 console.print("  [green]/attach <path>[/green] - Stage file for next message")
                 console.print("  [green]/clear[/green]         - Clear staged attachments")
+                console.print("  [green]/save [path][/green]   - Save last response to file (markdown format)")
                 console.print("  [green]/provider[/green]      - Switch provider and model")
                 console.print("  [green]/help[/green]          - Show this help message")
                 console.print("  [green]exit, quit, q[/green]  - Exit interactive mode")
@@ -1025,13 +1149,15 @@ def interactive(
                 console.print(f"  File size limit: [cyan]{MAX_FILE_SIZE_MB} MB[/cyan]")
                 if staged_file_content:
                     console.print(f"  Staged file: [yellow]📎 {staged_file_name}[/yellow]")
+                if last_response:
+                    console.print(f"  Last response: [green]✓ Available to save[/green]")
                 console.print()
                 continue
             
             elif user_input.startswith('/'):
                 # Unknown command
                 console.print(f"[yellow]Unknown command: {user_input.split()[0]}[/yellow]")
-                console.print("[dim]Available commands: /file <path>, /attach <path>, /clear, /provider, /help | Type 'exit' to quit[/dim]")
+                console.print("[dim]Available commands: /file, /attach, /clear, /save, /provider, /help | Type 'exit' to quit[/dim]")
                 continue
             
             # Skip empty input (unless there's a staged file)
@@ -1094,6 +1220,9 @@ def interactive(
                 # Add assistant message to history
                 messages.append(Message(role="assistant", content=response.content))
                 
+                # Store last response for /save command
+                last_response = response
+                
                 # Display metadata and response
                 console.print(f"\n[bold green]Assistant[/bold green]")
                 console.print(f"[bold]Provider:[/bold] [cyan]{provider}[/cyan] | [bold]Model:[/bold] [cyan]{model}[/cyan]")
@@ -1117,7 +1246,7 @@ def interactive(
                 
                 console.print(f"[dim]{' | '.join(usage_parts)}[/dim]")
                 console.print(f"\n{response.content}", style="cyan")
-                console.print()
+                console.print("[dim]💡 Tip: Use /save to save this response to a file[/dim]\n")
             
             except AuthenticationError as e:
                 console.print(f"\n[red]✗ Authentication Failed[/red]")
@@ -1207,17 +1336,40 @@ def analyze(
         file_okay=True,
         dir_okay=False,
         readable=True
-    )
+    ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider", "-p",
+        help="LLM provider for future LLM-enhanced extraction"
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model", "-m",
+        help="Model name for future LLM-enhanced extraction"
+    ),
 ):
     """Analyze file and extract structure/schema for efficient LLM processing.
     
     Supports CSV, JSON, log files, and Python code. Reduces token usage by 80-99%.
+    If --provider and --model are not specified, the optimal model is auto-selected.
     """
     try:
         from llm_abstraction.utils.csv_extractor import analyze_csv_file
         from llm_abstraction.utils.json_extractor import analyze_json_file
         from llm_abstraction.utils.log_extractor import extract_log_summary
         from llm_abstraction.utils.code_extractor import analyze_code_file
+        from llm_abstraction.utils.model_selector import select_model_for_file
+        
+        # Auto-select model if not specified
+        if not provider or not model:
+            try:
+                auto_provider, auto_model, reasoning = select_model_for_file(file)
+                provider = provider or auto_provider
+                model = model or auto_model
+                console.print(f"\n[cyan]🤖 Auto-selected model:[/cyan] {provider}/{model}")
+                console.print(f"[dim]   Reason: {reasoning}[/dim]")
+            except Exception as e:
+                console.print(f"[yellow]⚠ Auto-selection info: {e}[/yellow]")
         
         # Detect file type
         extension = file.suffix.lower()
@@ -1270,44 +1422,133 @@ def analyze(
 
 
 @app.command(name="cache-stats")
-def cache_stats():
-    """Display cache statistics."""
+def cache_stats(
+    detailed: bool = typer.Option(
+        False,
+        "--detailed", "-d",
+        help="Show detailed cache entry information"
+    )
+):
+    """Display cache statistics with cost savings analytics."""
     
     try:
         stats = get_cache_stats()
         
-        console.print("\n[bold cyan]Response Cache Statistics[/bold cyan]\n")
+        console.print("\n[bold cyan]📊 Response Cache Statistics[/bold cyan]\n")
         
-        # Create table
-        table = Table()
-        table.add_column("Metric", style="cyan")
+        # Create main stats table
+        table = Table(title="Cache Metrics", show_header=True)
+        table.add_column("Metric", style="cyan", no_wrap=True)
         table.add_column("Value", justify="right", style="yellow")
         
-        table.add_row("Cache Size", f"{stats['size']:,} entries")
-        table.add_row("Max Size", f"{stats['max_size']:,} entries")
+        table.add_row("Cache Size", f"{stats['size']:,} / {stats['max_size']:,} entries")
         table.add_row("Total Hits", f"{stats['total_hits']:,}")
         table.add_row("Total Misses", f"{stats['total_misses']:,}")
+        table.add_row("Total Requests", f"{stats['total_requests']:,}")
         
-        total_requests = stats['total_hits'] + stats['total_misses']
-        if total_requests > 0:
-            hit_rate = (stats['total_hits'] / total_requests) * 100
-            table.add_row("Hit Rate", f"{hit_rate:.1f}%")
+        # Hit rate with visual indicator
+        hit_rate = stats.get('hit_rate', 0.0)
+        if hit_rate >= 75:
+            hit_rate_str = f"[green]{hit_rate:.1f}%[/green] 🎯"
+        elif hit_rate >= 50:
+            hit_rate_str = f"[yellow]{hit_rate:.1f}%[/yellow] ⚠️"
         else:
-            table.add_row("Hit Rate", "N/A")
+            hit_rate_str = f"[red]{hit_rate:.1f}%[/red] 📉"
+        table.add_row("Hit Rate", hit_rate_str)
         
-        table.add_row("TTL", f"{stats['ttl']} seconds")
+        table.add_row("TTL (Time-to-Live)", f"{stats['ttl']:,} seconds")
         
         console.print(table)
         
-        # Cost savings estimation
-        if stats['total_hits'] > 0:
-            console.print(f"\n[dim]Cache hits save ~{stats['total_hits']} API calls[/dim]")
-            console.print(f"[dim]Estimated cost savings: 100% on cached requests[/dim]")
+        # Cost savings section
+        cost_saved = stats.get('total_cost_saved', 0.0)
+        if cost_saved > 0 or stats['total_hits'] > 0:
+            console.print("\n[bold green]💰 Cost Savings Analysis[/bold green]")
+            console.print(f"\n[green]✓[/green] Total Cost Saved: [bold green]${cost_saved:.4f}[/bold green]")
+            console.print(f"[dim]   ({stats['total_hits']:,} cached responses avoided API calls)[/dim]")
+            
+            if stats['total_hits'] > 0:
+                avg_savings_per_hit = cost_saved / stats['total_hits']
+                console.print(f"[dim]   Average savings per hit: ${avg_savings_per_hit:.6f}[/dim]")
+        
+        # Detailed entry view
+        if detailed and stats['size'] > 0:
+            console.print("\n[bold cyan]📝 Cache Entries (Top 10 by hits)[/bold cyan]\n")
+            
+            entries = get_cache_entries()[:10]  # Top 10
+            
+            entry_table = Table(show_header=True)
+            entry_table.add_column("Provider", style="cyan")
+            entry_table.add_column("Model", style="magenta")
+            entry_table.add_column("Hits", justify="right", style="yellow")
+            entry_table.add_column("Cost Saved", justify="right", style="green")
+            entry_table.add_column("Age", justify="right", style="blue")
+            entry_table.add_column("Expires In", justify="right", style="red")
+            
+            for entry in entries:
+                age_str = f"{entry['age_seconds']}s"
+                expires_str = f"{entry['expires_in']}s"
+                cost_str = f"${entry['cost_saved']:.4f}" if entry['cost_saved'] > 0 else "-"
+                
+                entry_table.add_row(
+                    entry['provider'],
+                    entry['model'],
+                    str(entry['hits']),
+                    cost_str,
+                    age_str,
+                    expires_str
+                )
+            
+            console.print(entry_table)
+        
+        # Usage tip
+        if not detailed and stats['size'] > 0:
+            console.print("\n[dim]💡 Tip: Use --detailed flag to see cache entry information[/dim]")
         
         console.print()
         
     except Exception as e:
         console.print(f"[red]Error getting cache stats:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command(name="cache-clear")
+def cache_clear(
+    force: bool = typer.Option(
+        False,
+        "--force", "-f",
+        help="Skip confirmation prompt"
+    )
+):
+    """Clear all cache entries."""
+    
+    try:
+        stats = get_cache_stats()
+        
+        if stats['size'] == 0:
+            console.print("\n[yellow]Cache is already empty.[/yellow]\n")
+            return
+        
+        # Show what will be cleared
+        console.print(f"\n[yellow]⚠️  About to clear:[/yellow]")
+        console.print(f"   - {stats['size']:,} cache entries")
+        console.print(f"   - {stats['total_hits']:,} total hits")
+        if stats.get('total_cost_saved', 0) > 0:
+            console.print(f"   - ${stats['total_cost_saved']:.4f} saved cost data")
+        
+        # Confirm unless --force
+        if not force:
+            confirm = Confirm.ask("\nAre you sure you want to clear the cache?", default=False)
+            if not confirm:
+                console.print("\n[dim]Cache clear cancelled.[/dim]\n")
+                return
+        
+        # Clear cache
+        clear_cache()
+        console.print("\n[green]✓ Cache cleared successfully[/green]\n")
+        
+    except Exception as e:
+        console.print(f"[red]Error clearing cache:[/red] {e}")
         raise typer.Exit(1)
 
 

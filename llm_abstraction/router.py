@@ -7,6 +7,7 @@ import re
 
 from .config import MODEL_CATALOG
 from .models import Message
+from .utils.file_analyzer import FileType
 
 
 class RoutingStrategy(str, Enum):
@@ -421,6 +422,82 @@ class Router:
         """Get metadata for a specific model."""
         key = f"{provider}/{model}"
         return self.model_metadata.get(key)
+    
+    def route_for_extraction(
+        self,
+        file_type: FileType,
+        extraction_mode: str = "schema",
+        max_cost_per_1k_tokens: Optional[float] = None,
+    ) -> Tuple[str, str]:
+        """
+        Select the best model for file extraction tasks.
+        
+        Prioritizes quality over cost/latency for extraction tasks,
+        with task-specific optimizations.
+        
+        Args:
+            file_type: Type of file being extracted
+            extraction_mode: Mode of extraction ("schema", "errors", "structure", "summary")
+            max_cost_per_1k_tokens: Optional cost constraint
+        
+        Returns:
+            Tuple of (provider, model) optimized for extraction
+        """
+        # Define extraction-specific quality weights
+        if extraction_mode == "schema":
+            quality_weight = 0.90
+            cost_weight = 0.10
+        elif extraction_mode == "errors":
+            quality_weight = 0.80
+            cost_weight = 0.20
+        elif extraction_mode == "structure":
+            quality_weight = 0.85
+            cost_weight = 0.15
+        else:  # summary
+            quality_weight = 0.70
+            cost_weight = 0.30
+        
+        # Filter candidates
+        candidates = {}
+        for key, meta in self.model_metadata.items():
+            # Apply cost constraint if specified
+            if max_cost_per_1k_tokens:
+                avg_cost_per_1k = (meta.cost_per_1m_input + meta.cost_per_1m_output) / 1000
+                if avg_cost_per_1k > max_cost_per_1k_tokens:
+                    continue
+            
+            candidates[key] = meta
+        
+        if not candidates:
+            raise ValueError(
+                "No models meet cost constraints. "
+                "Consider increasing max_cost_per_1k_tokens."
+            )
+        
+        # Score candidates with extraction-focused weights
+        scores = {}
+        for key, meta in candidates.items():
+            # Quality score (0-1, higher is better)
+            quality_score = meta.quality_score
+            
+            # Boost for reasoning models on error extraction
+            if extraction_mode == "errors" and meta.reasoning_model:
+                quality_score += 0.05
+            
+            # Cost score (0-1, lower cost is better)
+            avg_cost_per_1k = (meta.cost_per_1m_input + meta.cost_per_1m_output) / 1000
+            cost_score = max(0, 1 - (avg_cost_per_1k / 0.050))
+            
+            # Calculate weighted score (no latency for extraction)
+            scores[key] = (
+                quality_weight * quality_score +
+                cost_weight * cost_score
+            )
+        
+        # Select highest scoring model
+        best_key = max(scores, key=scores.get)
+        metadata = self.model_metadata[best_key]
+        return metadata.provider, metadata.model
     
     def list_models(
         self,

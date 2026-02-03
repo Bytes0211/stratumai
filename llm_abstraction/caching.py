@@ -17,6 +17,7 @@ class CacheEntry:
     response: ChatResponse
     timestamp: float
     hits: int = 0
+    cost_saved: float = 0.0  # Total cost saved from this entry
 
 
 class ResponseCache:
@@ -34,6 +35,8 @@ class ResponseCache:
         self.max_size = max_size
         self._cache: Dict[str, CacheEntry] = {}
         self._lock = threading.Lock()
+        self._total_misses: int = 0
+        self._total_cost_saved: float = 0.0
     
     def get(self, key: str) -> Optional[ChatResponse]:
         """
@@ -47,6 +50,7 @@ class ResponseCache:
         """
         with self._lock:
             if key not in self._cache:
+                self._total_misses += 1
                 return None
             
             entry = self._cache[key]
@@ -54,10 +58,16 @@ class ResponseCache:
             # Check if expired
             if time.time() - entry.timestamp > self.ttl:
                 del self._cache[key]
+                self._total_misses += 1
                 return None
             
-            # Update hit count
+            # Update hit count and cost saved
             entry.hits += 1
+            if hasattr(entry.response, 'usage') and hasattr(entry.response.usage, 'cost_usd'):
+                cost = entry.response.usage.cost_usd
+                entry.cost_saved += cost
+                self._total_cost_saved += cost
+            
             return entry.response
     
     def set(self, key: str, response: ChatResponse) -> None:
@@ -87,22 +97,56 @@ class ResponseCache:
         """Clear all cache entries."""
         with self._lock:
             self._cache.clear()
+            self._total_misses = 0
+            self._total_cost_saved = 0.0
     
     def get_stats(self) -> Dict[str, Any]:
         """
         Get cache statistics.
         
         Returns:
-            Dictionary with cache stats
+            Dictionary with cache stats including hits, misses, and cost savings
         """
         with self._lock:
             total_hits = sum(entry.hits for entry in self._cache.values())
+            total_requests = total_hits + self._total_misses
+            hit_rate = (total_hits / total_requests * 100) if total_requests > 0 else 0.0
+            
             return {
                 "size": len(self._cache),
                 "max_size": self.max_size,
                 "total_hits": total_hits,
+                "total_misses": self._total_misses,
+                "total_requests": total_requests,
+                "hit_rate": hit_rate,
+                "total_cost_saved": self._total_cost_saved,
                 "ttl": self.ttl,
             }
+    
+    def get_entries(self) -> list[Dict[str, Any]]:
+        """
+        Get detailed information about cache entries.
+        
+        Returns:
+            List of cache entry details
+        """
+        with self._lock:
+            entries = []
+            for key, entry in self._cache.items():
+                age = time.time() - entry.timestamp
+                entries.append({
+                    "key": key[:16] + "...",  # Truncate hash for display
+                    "model": entry.response.model if hasattr(entry.response, 'model') else "unknown",
+                    "provider": entry.response.provider if hasattr(entry.response, 'provider') else "unknown",
+                    "hits": entry.hits,
+                    "cost_saved": entry.cost_saved,
+                    "age_seconds": int(age),
+                    "expires_in": int(self.ttl - age),
+                })
+            
+            # Sort by hits (most popular first)
+            entries.sort(key=lambda x: x["hits"], reverse=True)
+            return entries
 
 
 # Global cache instance
@@ -218,6 +262,16 @@ def get_cache_stats() -> Dict[str, Any]:
         Dictionary with cache statistics
     """
     return _global_cache.get_stats()
+
+
+def get_cache_entries() -> list[Dict[str, Any]]:
+    """
+    Get detailed information about cache entries.
+    
+    Returns:
+        List of cache entry details
+    """
+    return _global_cache.get_entries()
 
 
 def clear_cache() -> None:

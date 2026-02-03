@@ -1,6 +1,6 @@
 # StratumAI - Unified Intelligence Across Every Model Layer
 
-**Status:** Phase 7.2 Complete ✅ | 8 Providers Operational | Intelligent File Extraction
+**Status:** Phase 7.3 Complete ✅ | 8 Providers Operational | Auto Model Selection
 
 ## Why This Project Matters
 
@@ -41,6 +41,8 @@ StratumAI is a multi-provider LLM abstraction module that allows developers/user
 - ✅ Web GUI with FastAPI and interactive interface
 - ✅ Intelligent routing with complexity analysis
 - ✅ Rich/Typer CLI for terminal usage (Phase 5 Complete)
+- ✅ Large file handling with chunking and extraction (Phase 7.1-7.2)
+- ✅ Automatic model selection for file types (Phase 7.3 Complete)
 
 ## Architecture Overview
 
@@ -139,6 +141,8 @@ stratumai/
 │   └── caching_examples.py             # Caching decorator examples
 └─ llm_abstraction/                    # Main package
     ├── __init__.py
+├── llm_abstraction/                    # Main package
+    ├── __init__.py
     ├── client.py                       # Unified LLMClient
     ├── models.py                       # Data models (Message, ChatRequest, ChatResponse)
     ├── config.py                       # Model catalogs and cost tables
@@ -146,14 +150,17 @@ stratumai/
     ├── cost_tracker.py                 # Cost tracking module
     ├── retry.py                        # Retry logic with fallbacks
     ├── caching.py                      # Response caching
-    ├── router.py                       # Intelligent routing
+    ├── router.py                       # Intelligent routing + extraction routing
     ├── chunking.py                     # Smart content chunking
     ├── summarization.py                # Progressive summarization
-    ├── utils/                          # Utilities (Phase 7.1)
+    ├── utils/                          # Utilities (Phase 7.1-7.3)
     │   ├── token_counter.py            # Token estimation
-    │   └── file_analyzer.py            # File type detection
-    └── providers/
-        ├── base.py                     # BaseProvider abstract class
+    │   ├── file_analyzer.py            # File type detection
+    │   ├── model_selector.py           # Auto model selection (Phase 7.3)
+    │   ├── csv_extractor.py            # CSV schema extraction
+    │   ├── json_extractor.py           # JSON schema extraction
+    │   ├── log_extractor.py            # Log error extraction
+    │   └── code_extractor.py           # Code structure extraction
         ├── openai.py                   # OpenAI implementation
         ├── anthropic.py                # Anthropic implementation
         ├── google.py                   # Google Gemini implementation
@@ -189,7 +196,7 @@ stratumai/
 
 ### CLI Features ✅
 - **Rich/Typer Interface**: Beautiful terminal UI with colors, tables, and spinners
-- **Core Commands**: chat, models, providers, route, interactive
+- **Core Commands**: chat, models, providers, route, interactive, analyze
 - **Numbered Selection**: Choose provider/model by number instead of typing names
 - **Reasoning Model Labels**: Visual indicators for reasoning models (o1, o3-mini, deepseek-reasoner)
 - **Fixed Temperature Handling**: Automatic temperature setting for reasoning models
@@ -197,17 +204,26 @@ stratumai/
 - **Token Breakdown**: Separate display of input tokens, output tokens, and total tokens (In: X | Out: Y | Total: Z)
 - **Spinner Feedback**: Animated "Thinking..." indicator while waiting for responses
 - **Streaming Output**: Real-time LLM responses with no flicker
-- **Interactive Mode**: Conversation loop with history, context display, and special commands
-  - `/file <path>` - Load and send file immediately
+- **Interactive Mode**: Conversation loop with history, context display, and special commands:
+  - `/file <path>` - Load and send file immediately (with intelligent extraction for large files)
   - `/attach <path>` - Stage file for next message
   - `/clear` - Clear staged attachments
+  - `/save [path]` - Save last assistant response to file with metadata
   - `/provider` - Switch provider and model mid-conversation (preserves history)
   - `/help` - Display available commands and session info
   - `exit, quit, q` - Exit interactive mode
+- **Intelligent File Extraction**: Automatic schema extraction for large files (>500KB)
+  - CSV → Schema with statistics (26-99% token reduction)
+  - JSON → Type-safe schema (78-95% reduction)
+  - Logs → Error summary (90% reduction)
+  - Python → AST structure (33-80% reduction)
+  - User prompted to choose extraction vs. full file load
+- **File Analysis**: `analyze` command extracts schemas from CSV/JSON, errors from logs, structure from code
+- **Auto Model Selection**: --auto-select flag automatically chooses optimal model for file type (Phase 7.3)
 - **File Attachments**: Upload files via `--file` flag or in-conversation commands
 - **File Size Limits**: 5 MB max with warnings for files >500 KB
 - **Conversation Persistence**: History maintained when switching providers/models
-- **Markdown Export**: Save responses as markdown files with metadata
+- **Response Export**: Save assistant responses as markdown files with full metadata
 - **Router Integration**: Auto-select best model from CLI
 - **Environment Variables**: Native support for STRATUMAI_PROVIDER, STRATUMAI_MODEL
 
@@ -222,9 +238,9 @@ stratumai/
 
 ## Project Status
 
-**Current Phase:** Phase 7.2 - Intelligent Extraction ✅ COMPLETE
+**Current Phase:** Phase 7.4 - Enhanced Caching UI ✅ COMPLETE
 
-**Progress:** Phases 1-6 Complete + Phase 7.1-7.2 Complete
+**Progress:** Phases 1-6 Complete + Phase 7.1-7.4 Complete
 
 **Completed Phases:**
 - ✅ **Phase 1:** Core Implementation (5/5 tasks)
@@ -294,10 +310,25 @@ stratumai/
   - pandas dependency for CSV processing
   - 35 unit tests passing (100%)
 
+- ✅ **Phase 7.3:** Model Auto-Selection (4/4 tasks)
+  - ModelSelector class for file-based selection (324 lines)
+  - Router.route_for_extraction() method with quality prioritization
+  - --auto-select flag in chat command
+  - Auto-selection in analyze command (provider/model flags)
+  - ExtractionMode enum (schema/errors/structure/summary)
+  - 32 unit tests passing (100%)
+
+- ✅ **Phase 7.4:** Enhanced Caching UI (4/4 tasks)
+  - Enhanced ResponseCache with hit/miss tracking and cost analytics
+  - cache-stats command with --detailed flag for entry inspection
+  - cache-clear command with confirmation prompt
+  - Visual hit rate indicators (🎯 ≥75%, ⚠️ ≥50%, 📉 <50%)
+  - Cost savings analysis showing total saved and average per hit
+  - 11 unit tests passing (100%)
+
 **Next Steps:**
-- 📝 Phase 7.3: Model Auto-Selection
-- 📝 Phase 7.4: Enhanced Caching UI
 - 📝 Phase 7.5: RAG/Vector DB Integration (ChromaDB)
+- 📝 Phase 8: Production Deployment
 
 ## Usage Examples
 
@@ -327,9 +358,10 @@ python -m cli.stratumai_cli route "Explain quantum computing" --strategy hybrid
 # Interactive conversation mode with special commands
 python -m cli.stratumai_cli interactive --provider anthropic --model claude-sonnet-4-5-20250929
 # Within interactive mode:
-#   /file <path>     - Load and send file
+#   /file <path>     - Load and send file (auto-extracts schemas for large files)
 #   /attach <path>   - Stage file for next message
 #   /clear           - Clear staged files
+#   /save [path]     - Save last response to file with metadata
 #   /provider        - Switch provider/model (history preserved)
 #   /help            - Show commands and session info
 #   exit, quit, q    - Exit
@@ -345,6 +377,17 @@ python -m cli.stratumai_cli chat --file large_document.txt --chunked --provider 
 
 # Chat with custom chunk size
 python -m cli.stratumai_cli chat --file data.csv --chunked --chunk-size 100000 --provider openai --model gpt-4o-mini
+
+# Analyze file structure (CSV schema, JSON schema, log errors, code structure)
+python -m cli.stratumai_cli analyze data/housing.csv
+# Auto-selects optimal model and shows 99.4% token reduction
+
+# View cache statistics
+python -m cli.stratumai_cli cache-stats
+python -m cli.stratumai_cli cache-stats --detailed  # Show top 10 entries
+
+# Clear response cache
+python -m cli.stratumai_cli cache-clear
 
 # List all models
 python -m cli.stratumai_cli models
