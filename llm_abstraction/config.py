@@ -189,7 +189,7 @@ PROVIDER_CONSTRAINTS: Dict[str, Dict[str, Any]] = {
 
 # Anthropic Model Catalog
 ANTHROPIC_MODELS: Dict[str, Dict[str, Any]] = {
-    # Claude 4.5 Models
+    # Claude 4.5 Models (Latest - November 2025)
     "claude-sonnet-4-5-20250929": {
         "context": 200000,
         "cost_input": 3.0,
@@ -210,63 +210,66 @@ ANTHROPIC_MODELS: Dict[str, Dict[str, Any]] = {
         "supports_tools": True,
         "supports_caching": True,
     },
-    "claude-opus-4-5-20251124": {
-        "context": 200000,
-        "cost_input": 15.0,
-        "cost_output": 75.0,
-        "cost_cache_write": 18.75,
-        "cost_cache_read": 1.50,
+    "claude-opus-4-5-20251101": {
+        "context": 1000000,
+        "api_max_input": 200000,  # API enforces 200k input limit despite 1M context
+        "cost_input": 5.0,
+        "cost_output": 25.0,
+        "cost_cache_write": 6.25,
+        "cost_cache_read": 0.50,
         "supports_vision": True,
         "supports_tools": True,
         "supports_caching": True,
     },
     "claude-opus-4-5": {  # Alias for latest Opus 4.5
-        "context": 200000,
-        "cost_input": 15.0,
-        "cost_output": 75.0,
-        "cost_cache_write": 18.75,
-        "cost_cache_read": 1.50,
+        "context": 1000000,
+        "api_max_input": 200000,  # API enforces 200k input limit despite 1M context
+        "cost_input": 5.0,
+        "cost_output": 25.0,
+        "cost_cache_write": 6.25,
+        "cost_cache_read": 0.50,
         "supports_vision": True,
         "supports_tools": True,
         "supports_caching": True,
     },
     "claude-haiku-4-5-20251001": {
         "context": 200000,
-        "cost_input": 0.80,
-        "cost_output": 4.0,
-        "cost_cache_write": 1.0,
-        "cost_cache_read": 0.08,
+        "cost_input": 1.0,
+        "cost_output": 5.0,
+        "cost_cache_write": 1.25,
+        "cost_cache_read": 0.10,
         "supports_vision": True,
         "supports_tools": True,
         "supports_caching": True,
     },
     "claude-haiku-4-5": {  # Alias for latest Haiku 4.5
         "context": 200000,
-        "cost_input": 0.80,
-        "cost_output": 4.0,
-        "cost_cache_write": 1.0,
-        "cost_cache_read": 0.08,
+        "cost_input": 1.0,
+        "cost_output": 5.0,
+        "cost_cache_write": 1.25,
+        "cost_cache_read": 0.10,
         "supports_vision": True,
         "supports_tools": True,
         "supports_caching": True,
     },
-    # Claude 4 Models
-    "claude-sonnet-4-20250514": {
-        "context": 200000,
-        "cost_input": 3.0,
-        "cost_output": 15.0,
-        "cost_cache_write": 3.75,
-        "cost_cache_read": 0.30,
-        "supports_vision": True,
-        "supports_tools": True,
-        "supports_caching": True,
-    },
+    # Claude 4.1 Models (August 2025)
     "claude-opus-4-1-20250805": {
         "context": 200000,
         "cost_input": 15.0,
         "cost_output": 75.0,
         "cost_cache_write": 18.75,
         "cost_cache_read": 1.50,
+        "supports_vision": True,
+        "supports_tools": True,
+        "supports_caching": True,
+    },
+    # Claude 4 Models (May 2025)
+    "claude-sonnet-4-20250514": {
+        "context": 200000,
+        "cost_input": 3.0,
+        "cost_output": 15.0,
+        "cost_cache_write": 3.75,
+        "cost_cache_read": 0.30,
         "supports_vision": True,
         "supports_tools": True,
         "supports_caching": True,
@@ -281,7 +284,7 @@ ANTHROPIC_MODELS: Dict[str, Dict[str, Any]] = {
         "supports_tools": True,
         "supports_caching": True,
     },
-    # Claude 3.7 Models (Still supported)
+    # Claude 3.7 Sonnet (February 2025)
     "claude-3-7-sonnet-20250219": {
         "context": 200000,
         "cost_input": 3.0,
@@ -289,6 +292,27 @@ ANTHROPIC_MODELS: Dict[str, Dict[str, Any]] = {
         "cost_cache_write": 3.75,
         "cost_cache_read": 0.30,
         "supports_vision": True,
+        "supports_tools": True,
+        "supports_caching": True,
+    },
+    # Claude 3.5 Models (October 2024) - Legacy but still available
+    "claude-3-5-sonnet-20241022": {
+        "context": 200000,
+        "cost_input": 3.0,
+        "cost_output": 15.0,
+        "cost_cache_write": 3.75,
+        "cost_cache_read": 0.30,
+        "supports_vision": True,
+        "supports_tools": True,
+        "supports_caching": True,
+    },
+    "claude-3-5-haiku-20241022": {
+        "context": 200000,
+        "cost_input": 1.0,
+        "cost_output": 5.0,
+        "cost_cache_write": 1.25,
+        "cost_cache_read": 0.10,
+        "supports_vision": False,
         "supports_tools": True,
         "supports_caching": True,
     },
@@ -434,9 +458,9 @@ GROK_MODELS: Dict[str, Dict[str, Any]] = {
 OPENROUTER_MODELS: Dict[str, Dict[str, Any]] = {
     # Anthropic Claude Models
     "anthropic/claude-opus-4-5": {
-        "context": 200000,
-        "cost_input": 15.0,
-        "cost_output": 75.0,
+        "context": 1000000,
+        "cost_input": 5.0,
+        "cost_output": 25.0,
         "supports_vision": True,
         "supports_tools": True,
         "supports_caching": True,

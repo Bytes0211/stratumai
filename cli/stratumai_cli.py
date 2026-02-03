@@ -17,8 +17,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from llm_abstraction import LLMClient, ChatRequest, Message, Router, RoutingStrategy, get_cache_stats
-from llm_abstraction.config import MODEL_CATALOG
-from llm_abstraction.exceptions import InvalidProviderError, InvalidModelError
+from llm_abstraction.config import MODEL_CATALOG, PROVIDER_ENV_VARS
+from llm_abstraction.exceptions import InvalidProviderError, InvalidModelError, AuthenticationError
+from llm_abstraction.summarization import summarize_file
+from llm_abstraction.utils.file_analyzer import analyze_file
 from pathlib import Path
 
 # Initialize Typer app and Rich console
@@ -80,12 +82,22 @@ def chat(
         "--cache-control",
         help="Enable prompt caching (for supported providers)"
     ),
+    chunked: bool = typer.Option(
+        False,
+        "--chunked",
+        help="Enable smart chunking and summarization for large files"
+    ),
+    chunk_size: int = typer.Option(
+        50000,
+        "--chunk-size",
+        help="Chunk size in characters (default: 50000)"
+    ),
 ):
     """Send a chat message to an LLM provider.
     
     Note: For multi-turn conversations with context, use 'stratumai interactive' instead.
     """
-    return _chat_impl(message, provider, model, temperature, max_tokens, stream, system, file, cache_control)
+    return _chat_impl(message, provider, model, temperature, max_tokens, stream, system, file, cache_control, chunked, chunk_size)
 
 
 def _chat_impl(
@@ -98,6 +110,8 @@ def _chat_impl(
     system: Optional[str],
     file: Optional[Path],
     cache_control: bool,
+    chunked: bool = False,
+    chunk_size: int = 50000,
     _conversation_history: Optional[List[Message]] = None,
 ):
     """Internal implementation of chat with conversation history support."""
@@ -252,6 +266,17 @@ def _chat_impl(
                             size_str = f"{file_size_mb:.2f} MB"
                         
                         console.print(f"[green]✓ Loaded {file.name}[/green] [dim]({size_str}, {len(file_content):,} chars)[/dim]")
+                        
+                        # Analyze file if chunking enabled
+                        if chunked:
+                            analysis = analyze_file(str(file), provider or "openai", model or "gpt-4o")
+                            console.print(f"[cyan]File Analysis:[/cyan]")
+                            console.print(f"  Type: {analysis.file_type.value}")
+                            console.print(f"  Tokens: ~{analysis.estimated_tokens:,}")
+                            console.print(f"  Recommendation: {analysis.recommendation}")
+                            
+                            if analysis.warning:
+                                console.print(f"[yellow]⚠ {analysis.warning}[/yellow]")
                     else:
                         # Fallback for tests or non-Path objects
                         console.print(f"[dim]Loaded content from {file} ({len(file_content)} chars)[/dim]")
@@ -276,8 +301,32 @@ def _chat_impl(
         
         # Add file content or message
         if file_content:
-            # If both file and message provided, combine them
-            content = f"{message}\n\n{file_content}" if message else file_content
+            # Check if chunking is needed
+            if chunked:
+                console.print(f"\n[cyan]Chunking and summarizing file...[/cyan]")
+                
+                # Create client for summarization
+                client = LLMClient(provider=provider)
+                
+                # Summarize file
+                result = summarize_file(
+                    file_content,
+                    client,
+                    chunk_size=chunk_size,
+                    model=model,  # Use selected model for summarization
+                    context=f"Analyzing file: {file.name if isinstance(file, Path) else 'uploaded file'}" if message is None else message,
+                    show_progress=True
+                )
+                
+                # Show reduction stats
+                console.print(f"[green]✓ Summarization complete[/green]")
+                console.print(f"[dim]Original: {result['original_length']:,} chars | Summary: {result['summary_length']:,} chars | Reduction: {result['reduction_percentage']}%[/dim]")
+                
+                # Use summary as content
+                content = f"{message}\n\nFile Summary:\n{result['summary']}" if message else f"File Summary:\n{result['summary']}"
+            else:
+                # If both file and message provided, combine them
+                content = f"{message}\n\n{file_content}" if message else file_content
             
             # Add cache control for large content if requested
             if cache_control and len(file_content) > 1000:
@@ -326,8 +375,14 @@ def _chat_impl(
             # Display metadata before response
             console.print(f"\n[bold]Provider:[/bold] [cyan]{provider}[/cyan] | [bold]Model:[/bold] [cyan]{model}[/cyan]")
             
-            # Build usage line with cache info if available
-            usage_parts = [f"Context: {context_window:,} tokens", f"Tokens: {response.usage.total_tokens}", f"Cost: ${response.usage.cost_usd:.6f}"]
+            # Build usage line with token breakdown and cache info
+            usage_parts = [
+                f"Context: {context_window:,} tokens",
+                f"In: {response.usage.prompt_tokens:,}",
+                f"Out: {response.usage.completion_tokens:,}",
+                f"Total: {response.usage.total_tokens:,}",
+                f"Cost: ${response.usage.cost_usd:.6f}"
+            ]
             
             # Add cache statistics if available
             if response.usage.cached_tokens > 0:
@@ -390,13 +445,46 @@ def _chat_impl(
             console.print("\n[dim]Tip: Use 'stratumai interactive' for a better multi-turn conversation experience[/dim]")
         
         # Recursive call with conversation history
-        _chat_impl(None, provider, model, temperature, max_tokens, stream, None, None, False, messages)
+        _chat_impl(None, provider, model, temperature, max_tokens, stream, None, None, False, chunked, chunk_size, messages)
     
     except InvalidProviderError as e:
         console.print(f"[red]Invalid provider:[/red] {e}")
         raise typer.Exit(1)
     except InvalidModelError as e:
         console.print(f"[red]Invalid model:[/red] {e}")
+        raise typer.Exit(1)
+    except AuthenticationError as e:
+        console.print(f"\n[red]✗ Authentication Failed[/red]")
+        console.print(f"[yellow]Provider:[/yellow] {e.provider}")
+        console.print(f"[yellow]Issue:[/yellow] API key is missing or invalid\n")
+        
+        # Get environment variable name for the provider
+        env_var = PROVIDER_ENV_VARS.get(e.provider, f"{e.provider.upper()}_API_KEY")
+        
+        console.print("[bold cyan]How to fix:[/bold cyan]")
+        console.print(f"  1. Set the environment variable: [green]{env_var}[/green]")
+        console.print(f"     export {env_var}=\"your-api-key-here\"")
+        console.print(f"\n  2. Or add to your [green].env[/green] file in the project root:")
+        console.print(f"     {env_var}=your-api-key-here\n")
+        
+        # Provider-specific instructions
+        if e.provider == "openai":
+            console.print("[dim]Get your API key from: https://platform.openai.com/api-keys[/dim]")
+        elif e.provider == "anthropic":
+            console.print("[dim]Get your API key from: https://console.anthropic.com/settings/keys[/dim]")
+        elif e.provider == "google":
+            console.print("[dim]Get your API key from: https://aistudio.google.com/app/apikey[/dim]")
+        elif e.provider == "deepseek":
+            console.print("[dim]Get your API key from: https://platform.deepseek.com/api_keys[/dim]")
+        elif e.provider == "groq":
+            console.print("[dim]Get your API key from: https://console.groq.com/keys[/dim]")
+        elif e.provider == "grok":
+            console.print("[dim]Get your API key from: https://console.x.ai/[/dim]")
+        elif e.provider == "openrouter":
+            console.print("[dim]Get your API key from: https://openrouter.ai/keys[/dim]")
+        elif e.provider == "ollama":
+            console.print("[dim]Ensure Ollama is running: ollama serve[/dim]")
+        
         raise typer.Exit(1)
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
@@ -725,6 +813,19 @@ def interactive(
         model_info = MODEL_CATALOG.get(provider, {}).get(model, {})
         context_window = model_info.get("context", "N/A")
         
+        # Set conversation history limit (reserve 80% for history, 20% for response)
+        # Use api_max_input if available (API limit), otherwise use context window
+        api_max_input = model_info.get("api_max_input")
+        if api_max_input and isinstance(api_max_input, int) and api_max_input > 0:
+            # Use API input limit (e.g., Anthropic's 200k limit for Claude Opus 4.5)
+            max_history_tokens = int(api_max_input * 0.8)
+        elif isinstance(context_window, int) and context_window > 0:
+            # Fall back to context window
+            max_history_tokens = int(context_window * 0.8)
+        else:
+            # Default to 128k context window if unknown
+            max_history_tokens = int(128000 * 0.8)
+        
         # Prompt for initial file if not provided via flag
         if not file:
             console.print(f"\n[bold cyan]Initial File Context (Optional)[/bold cyan]")
@@ -749,8 +850,14 @@ def interactive(
         
         # Welcome message
         console.print(f"\n[bold green]StratumAI Interactive Mode[/bold green]")
-        console.print(f"Provider: [cyan]{provider}[/cyan] | Model: [cyan]{model}[/cyan] | Context: [cyan]{context_window:,} tokens[/cyan]")
-        console.print("[dim]Commands: /file <path> | /attach <path> | /clear | exit[/dim]")
+        
+        # Display context info with API limit warning if applicable
+        if api_max_input and api_max_input < context_window:
+            console.print(f"Provider: [cyan]{provider}[/cyan] | Model: [cyan]{model}[/cyan] | Context: [cyan]{context_window:,} tokens[/cyan] [yellow](API limit: {api_max_input:,})[/yellow]")
+        else:
+            console.print(f"Provider: [cyan]{provider}[/cyan] | Model: [cyan]{model}[/cyan] | Context: [cyan]{context_window:,} tokens[/cyan]")
+        
+        console.print("[dim]Commands: /file <path> | /attach <path> | /clear | /provider | /help | exit[/dim]")
         console.print(f"[dim]File size limit: {MAX_FILE_SIZE_MB} MB | Ctrl+C to exit[/dim]\n")
         
         # Conversation loop
@@ -811,10 +918,120 @@ def interactive(
                     console.print("[dim]No staged files to clear[/dim]")
                 continue
             
+            elif user_input.lower() == '/provider':
+                # Switch provider and model
+                console.print("\n[bold cyan]Switch Provider and Model[/bold cyan]")
+                console.print("[dim]Your conversation history will be preserved[/dim]\n")
+                
+                # Show available providers
+                console.print("[bold cyan]Available providers:[/bold cyan]")
+                providers_list = list(MODEL_CATALOG.keys())
+                for i, p in enumerate(providers_list, 1):
+                    current_marker = " [green](current)[/green]" if p == provider else ""
+                    console.print(f"  {i}. {p}{current_marker}")
+                
+                # Get provider selection
+                max_attempts = 3
+                new_provider = None
+                for attempt in range(max_attempts):
+                    provider_choice = Prompt.ask("\nSelect provider")
+                    try:
+                        provider_idx = int(provider_choice) - 1
+                        if 0 <= provider_idx < len(providers_list):
+                            new_provider = providers_list[provider_idx]
+                            break
+                        else:
+                            console.print(f"[red]✗ Invalid number.[/red] Please enter a number between 1 and {len(providers_list)}")
+                            if attempt < max_attempts - 1:
+                                console.print("[dim]Try again...[/dim]")
+                    except ValueError:
+                        console.print(f"[red]✗ Invalid input.[/red] Please enter a number")
+                        if attempt < max_attempts - 1:
+                            console.print("[dim]Try again...[/dim]")
+                
+                if new_provider is None:
+                    console.print("[yellow]Provider not changed[/yellow]")
+                    continue
+                
+                # Show available models for new provider
+                console.print(f"\n[bold cyan]Available models for {new_provider}:[/bold cyan]")
+                available_models = list(MODEL_CATALOG[new_provider].keys())
+                for i, m in enumerate(available_models, 1):
+                    model_info = MODEL_CATALOG[new_provider][m]
+                    is_reasoning = model_info.get("reasoning_model", False)
+                    current_marker = " [green](current)[/green]" if m == model and new_provider == provider else ""
+                    label = f"  {i}. {m}{current_marker}"
+                    if is_reasoning:
+                        label += " [yellow](reasoning)[/yellow]"
+                    console.print(label)
+                
+                # Get model selection
+                new_model = None
+                for attempt in range(max_attempts):
+                    model_choice = Prompt.ask("\nSelect model")
+                    try:
+                        model_idx = int(model_choice) - 1
+                        if 0 <= model_idx < len(available_models):
+                            new_model = available_models[model_idx]
+                            break
+                        else:
+                            console.print(f"[red]✗ Invalid number.[/red] Please enter a number between 1 and {len(available_models)}")
+                            if attempt < max_attempts - 1:
+                                console.print("[dim]Try again...[/dim]")
+                    except ValueError:
+                        console.print(f"[red]✗ Invalid input.[/red] Please enter a number")
+                        if attempt < max_attempts - 1:
+                            console.print("[dim]Try again...[/dim]")
+                
+                if new_model is None:
+                    console.print("[yellow]Provider and model not changed[/yellow]")
+                    continue
+                
+                # Update provider and model
+                provider = new_provider
+                model = new_model
+                client = LLMClient(provider=provider)  # Reinitialize client
+                
+                # Update context window info
+                model_info = MODEL_CATALOG.get(provider, {}).get(model, {})
+                context_window = model_info.get("context", "N/A")
+                api_max_input = model_info.get("api_max_input")
+                
+                # Update history limit
+                if api_max_input and isinstance(api_max_input, int) and api_max_input > 0:
+                    max_history_tokens = int(api_max_input * 0.8)
+                elif isinstance(context_window, int) and context_window > 0:
+                    max_history_tokens = int(context_window * 0.8)
+                else:
+                    max_history_tokens = int(128000 * 0.8)
+                
+                console.print(f"\n[green]✓ Switched to:[/green] [cyan]{provider}[/cyan] | [cyan]{model}[/cyan] | [dim]Context: {context_window:,} tokens[/dim]")
+                console.print("[dim]Conversation history preserved[/dim]\n")
+                continue
+            
+            elif user_input.lower() == '/help':
+                # Display help information
+                console.print("\n[bold cyan]Available Commands:[/bold cyan]")
+                console.print("  [green]/file <path>[/green]   - Load and send file immediately")
+                console.print("  [green]/attach <path>[/green] - Stage file for next message")
+                console.print("  [green]/clear[/green]         - Clear staged attachments")
+                console.print("  [green]/provider[/green]      - Switch provider and model")
+                console.print("  [green]/help[/green]          - Show this help message")
+                console.print("  [green]exit, quit, q[/green]  - Exit interactive mode")
+                console.print(f"\n[bold cyan]Session Info:[/bold cyan]")
+                console.print(f"  Provider: [cyan]{provider}[/cyan]")
+                console.print(f"  Model: [cyan]{model}[/cyan]")
+                console.print(f"  Context: [cyan]{context_window:,} tokens[/cyan]")
+                console.print(f"  File size limit: [cyan]{MAX_FILE_SIZE_MB} MB[/cyan]")
+                if staged_file_content:
+                    console.print(f"  Staged file: [yellow]📎 {staged_file_name}[/yellow]")
+                console.print()
+                continue
+            
             elif user_input.startswith('/'):
                 # Unknown command
                 console.print(f"[yellow]Unknown command: {user_input.split()[0]}[/yellow]")
-                console.print("[dim]Available commands: /file <path>, /attach <path>, /clear[/dim]")
+                console.print("[dim]Available commands: /file <path>, /attach <path>, /clear, /provider, /help | Type 'exit' to quit[/dim]")
                 continue
             
             # Skip empty input (unless there's a staged file)
@@ -837,6 +1054,35 @@ def interactive(
             # Add user message to history
             messages.append(Message(role="user", content=message_content))
             
+            # Truncate conversation history if needed to prevent token limit errors
+            # Rough approximation: 1 token ≈ 4 characters
+            total_chars = sum(len(msg.content) for msg in messages)
+            estimated_tokens = total_chars // 4
+            
+            if estimated_tokens > max_history_tokens:
+                # Keep system messages and remove oldest user/assistant pairs
+                system_messages = [msg for msg in messages if msg.role == "system"]
+                conversation_messages = [msg for msg in messages if msg.role != "system"]
+                
+                # Calculate how many messages to keep
+                while len(conversation_messages) > 2:  # Keep at least the latest user message
+                    # Remove oldest pair (user + assistant)
+                    if len(conversation_messages) >= 2:
+                        conversation_messages = conversation_messages[2:]
+                    
+                    # Recalculate tokens
+                    total_chars = sum(len(msg.content) for msg in system_messages + conversation_messages)
+                    estimated_tokens = total_chars // 4
+                    
+                    if estimated_tokens <= max_history_tokens:
+                        break
+                
+                # Rebuild messages list
+                messages = system_messages + conversation_messages
+                
+                # Notify user of truncation
+                console.print(f"[yellow]⚠ Conversation history truncated (estimated {estimated_tokens:,} tokens)[/yellow]")
+            
             # Create request and get response
             request = ChatRequest(model=model, messages=messages)
             
@@ -852,8 +1098,14 @@ def interactive(
                 console.print(f"\n[bold green]Assistant[/bold green]")
                 console.print(f"[bold]Provider:[/bold] [cyan]{provider}[/cyan] | [bold]Model:[/bold] [cyan]{model}[/cyan]")
                 
-                # Build usage line with cache info
-                usage_parts = [f"Context: {context_window:,} tokens", f"Tokens: {response.usage.total_tokens}", f"Cost: ${response.usage.cost_usd:.6f}"]
+                # Build usage line with token breakdown and cache info
+                usage_parts = [
+                    f"Context: {context_window:,} tokens",
+                    f"In: {response.usage.prompt_tokens:,}",
+                    f"Out: {response.usage.completion_tokens:,}",
+                    f"Total: {response.usage.total_tokens:,}",
+                    f"Cost: ${response.usage.cost_usd:.6f}"
+                ]
                 
                 # Add cache statistics if available
                 if response.usage.cached_tokens > 0:
@@ -867,10 +1119,150 @@ def interactive(
                 console.print(f"\n{response.content}", style="cyan")
                 console.print()
             
+            except AuthenticationError as e:
+                console.print(f"\n[red]✗ Authentication Failed[/red]")
+                console.print(f"[yellow]Provider:[/yellow] {e.provider}")
+                console.print(f"[yellow]Issue:[/yellow] API key is missing or invalid\n")
+                
+                # Get environment variable name for the provider
+                env_var = PROVIDER_ENV_VARS.get(e.provider, f"{e.provider.upper()}_API_KEY")
+                
+                console.print("[bold cyan]How to fix:[/bold cyan]")
+                console.print(f"  1. Set the environment variable: [green]{env_var}[/green]")
+                console.print(f"     export {env_var}=\"your-api-key-here\"")
+                console.print(f"\n  2. Or add to your [green].env[/green] file in the project root:")
+                console.print(f"     {env_var}=your-api-key-here\n")
+                
+                # Provider-specific instructions
+                if e.provider == "openai":
+                    console.print("[dim]Get your API key from: https://platform.openai.com/api-keys[/dim]")
+                elif e.provider == "anthropic":
+                    console.print("[dim]Get your API key from: https://console.anthropic.com/settings/keys[/dim]")
+                elif e.provider == "google":
+                    console.print("[dim]Get your API key from: https://aistudio.google.com/app/apikey[/dim]")
+                elif e.provider == "deepseek":
+                    console.print("[dim]Get your API key from: https://platform.deepseek.com/api_keys[/dim]")
+                elif e.provider == "groq":
+                    console.print("[dim]Get your API key from: https://console.groq.com/keys[/dim]")
+                elif e.provider == "grok":
+                    console.print("[dim]Get your API key from: https://console.x.ai/[/dim]")
+                elif e.provider == "openrouter":
+                    console.print("[dim]Get your API key from: https://openrouter.ai/keys[/dim]")
+                elif e.provider == "ollama":
+                    console.print("[dim]Ensure Ollama is running: ollama serve[/dim]")
+                
+                # Remove failed user message from history
+                messages.pop()
+                console.print("[dim]You can continue the conversation after fixing the API key issue.\n[/dim]")
+            
             except Exception as e:
                 console.print(f"[red]Error:[/red] {e}\n")
                 # Remove failed user message from history
                 messages.pop()
+    
+    except AuthenticationError as e:
+        console.print(f"\n[red]✗ Authentication Failed[/red]")
+        console.print(f"[yellow]Provider:[/yellow] {e.provider}")
+        console.print(f"[yellow]Issue:[/yellow] API key is missing or invalid\n")
+        
+        # Get environment variable name for the provider
+        env_var = PROVIDER_ENV_VARS.get(e.provider, f"{e.provider.upper()}_API_KEY")
+        
+        console.print("[bold cyan]How to fix:[/bold cyan]")
+        console.print(f"  1. Set the environment variable: [green]{env_var}[/green]")
+        console.print(f"     export {env_var}=\"your-api-key-here\"")
+        console.print(f"\n  2. Or add to your [green].env[/green] file in the project root:")
+        console.print(f"     {env_var}=your-api-key-here\n")
+        
+        # Provider-specific instructions
+        if e.provider == "openai":
+            console.print("[dim]Get your API key from: https://platform.openai.com/api-keys[/dim]")
+        elif e.provider == "anthropic":
+            console.print("[dim]Get your API key from: https://console.anthropic.com/settings/keys[/dim]")
+        elif e.provider == "google":
+            console.print("[dim]Get your API key from: https://aistudio.google.com/app/apikey[/dim]")
+        elif e.provider == "deepseek":
+            console.print("[dim]Get your API key from: https://platform.deepseek.com/api_keys[/dim]")
+        elif e.provider == "groq":
+            console.print("[dim]Get your API key from: https://console.groq.com/keys[/dim]")
+        elif e.provider == "grok":
+            console.print("[dim]Get your API key from: https://console.x.ai/[/dim]")
+        elif e.provider == "openrouter":
+            console.print("[dim]Get your API key from: https://openrouter.ai/keys[/dim]")
+        elif e.provider == "ollama":
+            console.print("[dim]Ensure Ollama is running: ollama serve[/dim]")
+        
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def analyze(
+    file: Path = typer.Argument(
+        ...,
+        help="File to analyze",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True
+    )
+):
+    """Analyze file and extract structure/schema for efficient LLM processing.
+    
+    Supports CSV, JSON, log files, and Python code. Reduces token usage by 80-99%.
+    """
+    try:
+        from llm_abstraction.utils.csv_extractor import analyze_csv_file
+        from llm_abstraction.utils.json_extractor import analyze_json_file
+        from llm_abstraction.utils.log_extractor import extract_log_summary
+        from llm_abstraction.utils.code_extractor import analyze_code_file
+        
+        # Detect file type
+        extension = file.suffix.lower()
+        
+        console.print(f"\n[bold cyan]Analyzing File:[/bold cyan] {file}\n")
+        
+        try:
+            if extension == '.csv':
+                result = analyze_csv_file(file)
+                console.print("[bold green]CSV Schema Analysis[/bold green]\n")
+                console.print(result['schema_text'])
+                console.print(f"\n[bold]Token Reduction:[/bold] {result['token_reduction_pct']:.1f}%")
+                console.print(f"[dim]Original: {result['original_size_bytes']:,} bytes → Schema: {result['schema_size_bytes']:,} bytes[/dim]")
+            
+            elif extension == '.json':
+                result = analyze_json_file(file)
+                console.print("[bold green]JSON Schema Analysis[/bold green]\n")
+                console.print(result)
+                console.print(f"\n[bold]Token Reduction:[/bold] {result.get('token_reduction_pct', 0):.1f}%")
+            
+            elif extension in ['.log', '.txt'] and 'log' in file.name.lower():
+                result = extract_log_summary(file)
+                console.print("[bold green]Log File Analysis[/bold green]\n")
+                console.print(result['summary_text'])
+                console.print(f"\n[bold]Token Reduction:[/bold] {result['token_reduction_pct']:.1f}%")
+                console.print(f"[dim]Original: {result['original_size_bytes']:,} bytes → Summary: {result['summary_size_bytes']:,} bytes[/dim]")
+            
+            elif extension == '.py':
+                result = analyze_code_file(file)
+                console.print("[bold green]Python Code Structure Analysis[/bold green]\n")
+                console.print(result['structure_text'])
+                console.print(f"\n[bold]Token Reduction:[/bold] {result['token_reduction_pct']:.1f}%")
+                console.print(f"[dim]Original: {result['original_size_bytes']:,} bytes → Structure: {result['structure_size_bytes']:,} bytes[/dim]")
+            
+            else:
+                console.print(f"[yellow]File type not supported for intelligent extraction: {extension}[/yellow]")
+                console.print("[dim]Supported types: .csv, .json, .log, .py[/dim]")
+                raise typer.Exit(1)
+            
+            console.print(f"\n[green]✓ Analysis complete[/green]")
+            console.print(f"[dim]Recommendation: Use extracted schema/structure for LLM analysis[/dim]\n")
+        
+        except Exception as e:
+            console.print(f"[red]Error analyzing file:[/red] {e}")
+            raise typer.Exit(1)
     
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")

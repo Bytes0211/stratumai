@@ -27,7 +27,7 @@ from rich.markdown import Markdown
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from llm_abstraction import LLMClient, Router, RoutingStrategy
-from llm_abstraction.models import Message
+from llm_abstraction.models import Message, ChatRequest
 from llm_abstraction.exceptions import LLMAbstractionError
 
 console = Console()
@@ -156,7 +156,8 @@ Provide a detailed code review."""
                 if self.use_streaming:
                     console.print("\n[cyan]Streaming review...[/cyan]\n")
                     full_review = ""
-                    for chunk in self.client.chat_stream(model=model, messages=messages):
+                    request = ChatRequest(model=model, messages=messages)
+                    for chunk in self.client.chat_completion_stream(request):
                         console.print(chunk.content, end="", markup=False)
                         full_review += chunk.content
                     console.print("\n")

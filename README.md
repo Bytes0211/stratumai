@@ -1,5 +1,7 @@
 # StratumAI - Unified Intelligence Across Every Model Layer
 
+**Status:** Phase 7.2 Complete ✅ | 8 Providers Operational | Intelligent File Extraction
+
 ## Why This Project Matters
 
 StratumAI is a production-ready Python module that provides a unified, abstracted interface for accessing multiple frontier LLM providers (OpenAI, Anthropic, Google, DeepSeek, Groq, Grok, OpenRouter, Ollama) through a consistent API. It eliminates vendor lock-in, simplifies multi-model development, and enables intelligent routing between providers.
@@ -15,7 +17,7 @@ StratumAI is a production-ready Python module that provides a unified, abstracte
 
 ## Project Overview
 
-StratumAI is a multi-provider LLM abstraction module that allows developers to switch between AI models from different providers without changing their code. The module provides automatic retry with fallback, cost tracking, intelligent routing, and advanced features like streaming, caching, and budget management.
+StratumAI is a multi-provider LLM abstraction module that allows developers/users to switch between AI models from different providers without changing their code. The module provides automatic retry with fallback, cost tracking, intelligent routing, and advanced features like streaming, caching, and budget management.
 
 ### What This Project Delivers
 
@@ -135,7 +137,7 @@ stratumai/
 ├── examples/
 │   ├── router_example.py               # Router usage examples
 │   └── caching_examples.py             # Caching decorator examples
-└── llm_abstraction/                    # Main package
+└─ llm_abstraction/                    # Main package
     ├── __init__.py
     ├── client.py                       # Unified LLMClient
     ├── models.py                       # Data models (Message, ChatRequest, ChatResponse)
@@ -145,6 +147,11 @@ stratumai/
     ├── retry.py                        # Retry logic with fallbacks
     ├── caching.py                      # Response caching
     ├── router.py                       # Intelligent routing
+    ├── chunking.py                     # Smart content chunking
+    ├── summarization.py                # Progressive summarization
+    ├── utils/                          # Utilities (Phase 7.1)
+    │   ├── token_counter.py            # Token estimation
+    │   └── file_analyzer.py            # File type detection
     └── providers/
         ├── base.py                     # BaseProvider abstract class
         ├── openai.py                   # OpenAI implementation
@@ -159,14 +166,14 @@ stratumai/
 
 ## Key Features
 
-### Core Features (Phase 1-2)
+### Core Features
 - **Unified Interface**: Single API for 8 LLM providers
 - **Provider Abstraction**: BaseProvider interface with consistent methods
 - **Automatic Provider Detection**: Infer provider from model name
 - **Cost Calculation**: Per-request token usage and cost tracking
 - **Error Handling**: Custom exception hierarchy for different failure modes
 
-### Advanced Features (Phase 3)
+### Advanced Features
 - **Streaming Support**: Iterator-based streaming for all providers
 - **Cost Tracker**: Call history, grouping by provider/model, budget enforcement
 - **Retry Logic**: Exponential backoff with configurable fallback models
@@ -174,34 +181,50 @@ stratumai/
 - **Logging Decorator**: Comprehensive logging of all LLM calls
 - **Budget Management**: Set limits and receive alerts
 
-### Router Features (Phase 4)
+### Router Features
 - **Complexity Analysis**: Analyze prompt to determine appropriate model tier
 - **Routing Strategies**: Cost-optimized, quality-focused, latency-focused, or hybrid
 - **Model Metadata**: Context windows, capabilities, performance characteristics
 - **Performance Benchmarks**: Latency, cost, and quality metrics
 
-### CLI Features (Phase 5) ✅
+### CLI Features ✅
 - **Rich/Typer Interface**: Beautiful terminal UI with colors, tables, and spinners
 - **Core Commands**: chat, models, providers, route, interactive
 - **Numbered Selection**: Choose provider/model by number instead of typing names
-- **Reasoning Model Labels**: Visual indicators for reasoning models (o1, o3, deepseek-reasoner)
+- **Reasoning Model Labels**: Visual indicators for reasoning models (o1, o3-mini, deepseek-reasoner)
 - **Fixed Temperature Handling**: Automatic temperature setting for reasoning models
-- **Enhanced Metadata Display**: Provider, Model, Context Window, Tokens, and Cost
+- **Enhanced Metadata Display**: Provider, Model, Context Window, Token Breakdown, Cost
+- **Token Breakdown**: Separate display of input tokens, output tokens, and total tokens (In: X | Out: Y | Total: Z)
 - **Spinner Feedback**: Animated "Thinking..." indicator while waiting for responses
-- **Streaming Output**: Real-time LLM responses in terminal
-- **Interactive Mode**: Conversation loop with history and context display
-- **File Attachments**: Upload files via `--file` flag or in-conversation commands (`/file`, `/attach`)
-- **File Size Limits**: 5 MB max with warnings for files >500 KB to prevent excessive token usage
-- **Loop Functionality**: Send multiple messages without restarting
+- **Streaming Output**: Real-time LLM responses with no flicker
+- **Interactive Mode**: Conversation loop with history, context display, and special commands
+  - `/file <path>` - Load and send file immediately
+  - `/attach <path>` - Stage file for next message
+  - `/clear` - Clear staged attachments
+  - `/provider` - Switch provider and model mid-conversation (preserves history)
+  - `/help` - Display available commands and session info
+  - `exit, quit, q` - Exit interactive mode
+- **File Attachments**: Upload files via `--file` flag or in-conversation commands
+- **File Size Limits**: 5 MB max with warnings for files >500 KB
+- **Conversation Persistence**: History maintained when switching providers/models
 - **Markdown Export**: Save responses as markdown files with metadata
 - **Router Integration**: Auto-select best model from CLI
 - **Environment Variables**: Native support for STRATUMAI_PROVIDER, STRATUMAI_MODEL
 
+### Large File Handling Features
+- **Token Counting**: Provider-specific token estimation with tiktoken for OpenAI
+- **File Analysis**: Automatic file type detection (CSV, JSON, Python, logs, etc.)
+- **Smart Chunking**: Split large files at paragraph/sentence boundaries
+- **Progressive Summarization**: Multi-chunk summarization with cheaper models
+- **CLI Integration**: `--chunked` and `--chunk-size` flags for chat command
+- **Token Warnings**: Alert when approaching model context limits (>80%)
+- **Reduction Stats**: Display token reduction percentage after summarization
+
 ## Project Status
 
-**Current Phase:** Phase 5 - CLI Interface ✅ COMPLETE
+**Current Phase:** Phase 7.2 - Intelligent Extraction ✅ COMPLETE
 
-**Progress:** 88% Complete (29 of 33 tasks complete)
+**Progress:** Phases 1-6 Complete + Phase 7.1-7.2 Complete
 
 **Completed Phases:**
 - ✅ **Phase 1:** Core Implementation (5/5 tasks)
@@ -246,8 +269,35 @@ stratumai/
   - Markdown export functionality
   - Loop functionality for multiple queries
 
+- ✅ **Phase 6:** Production Readiness (6/6 tasks)
+  - Complete API documentation (API-REFERENCE.md, GETTING-STARTED.md)
+  - 6 example applications (chatbot, code reviewer, document summarizer, performance benchmark, router examples, caching examples)
+  - Performance optimization (<200ms cold start, <20MB memory)
+  - Prompt caching system (response cache + provider caching)
+  - CLI cache visibility and file input enhancements
+  - PyPI package preparation (setup.py, pyproject.toml, MANIFEST.in)
+
+- ✅ **Phase 7.1:** Large File Handling - Token Estimation & Chunking (5/5 tasks)
+  - Token counting utility (tiktoken for OpenAI)
+  - File type analysis and warnings
+  - Smart chunking at natural boundaries
+  - Progressive summarization with cheaper models
+  - CLI integration (--chunked, --chunk-size flags)
+  - 19 unit tests passing
+
+- ✅ **Phase 7.2:** Intelligent Extraction (4/4 tasks)
+  - CSV schema extraction (26-99% token reduction) - 197 lines
+  - JSON schema extraction (78-95% token reduction) - 219 lines
+  - Log error extraction (90% token reduction) - 267 lines
+  - Code structure extraction with AST (33-80% reduction) - 327 lines
+  - `analyze` CLI command for all file types
+  - pandas dependency for CSV processing
+  - 35 unit tests passing (100%)
+
 **Next Steps:**
-- 📝 Phase 6: Production Readiness (4 tasks remaining)
+- 📝 Phase 7.3: Model Auto-Selection
+- 📝 Phase 7.4: Enhanced Caching UI
+- 📝 Phase 7.5: RAG/Vector DB Integration (ChromaDB)
 
 ## Usage Examples
 
@@ -266,7 +316,7 @@ python -m cli.stratumai_cli chat
 # 2. Model (numbered list with reasoning labels)
 # 3. Temperature (auto-set for reasoning models)
 # 4. Your message
-# Then shows: Provider | Model | Context | Tokens | Cost
+# Then shows: Provider | Model | Context | In: X | Out: Y | Total: Z | Cost
 
 # Streaming mode
 python -m cli.stratumai_cli chat "Write a poem" --provider openai --model gpt-4o-mini --stream
@@ -274,14 +324,27 @@ python -m cli.stratumai_cli chat "Write a poem" --provider openai --model gpt-4o
 # Auto-route to best model
 python -m cli.stratumai_cli route "Explain quantum computing" --strategy hybrid
 
-# Interactive conversation mode
+# Interactive conversation mode with special commands
 python -m cli.stratumai_cli interactive --provider anthropic --model claude-sonnet-4-5-20250929
+# Within interactive mode:
+#   /file <path>     - Load and send file
+#   /attach <path>   - Stage file for next message
+#   /clear           - Clear staged files
+#   /provider        - Switch provider/model (history preserved)
+#   /help            - Show commands and session info
+#   exit, quit, q    - Exit
 
 # Interactive mode with initial file context
 python -m cli.stratumai_cli interactive --file document.txt
 
 # Chat with file attachment
 python -m cli.stratumai_cli chat --file report.pdf --provider openai --model gpt-4o
+
+# Chat with large file using chunking and summarization
+python -m cli.stratumai_cli chat --file large_document.txt --chunked --provider openai --model gpt-4o-mini
+
+# Chat with custom chunk size
+python -m cli.stratumai_cli chat --file data.csv --chunked --chunk-size 100000 --provider openai --model gpt-4o-mini
 
 # List all models
 python -m cli.stratumai_cli models
@@ -333,10 +396,15 @@ response = client.chat(
 
 ### Streaming Responses
 ```python
-for chunk in client.chat_stream(
+from llm_abstraction import LLMClient, ChatRequest
+
+client = LLMClient()
+request = ChatRequest(
     model="gpt-4.1-mini",
     messages=[{"role": "user", "content": "Write a poem"}]
-):
+)
+
+for chunk in client.chat_completion_stream(request):
     print(chunk.content, end="", flush=True)
 ```
 
@@ -357,27 +425,49 @@ for i in range(10):
 print(tracker.get_summary())
 ```
 
-## Implementation Timeline
+## Examples
 
-**Total Duration:** 7 weeks
+The `examples/` directory contains 6 comprehensive real-world examples:
 
-- **Week 1 (Jan 30):** ✅ Core Implementation - BaseProvider, OpenAI, unified client
-- **Week 2 (Jan 30):** ✅ Provider Expansion - All 8 providers operational
-- **Week 3 (Jan 30):** ✅ Advanced Features - Cost tracking, retry logic, budget management
-- **Week 4 (Jan 30):** ✅ Web GUI - FastAPI REST API, WebSocket streaming, interactive UI
-- **Week 5 (Feb 1):** ✅ Router and Optimization - Intelligent model selection
-- **Week 6 (Feb 1):** ✅ CLI Interface - Rich/Typer terminal interface with enhanced UX
-- **Week 7 (Feb 2-9):** 📝 Production Readiness - Documentation, examples, PyPI package
+1. **caching_examples.py** - Response caching and cost optimization with TTL
+2. **chatbot.py** - Interactive chatbot with conversation history and persistence
+3. **code_reviewer.py** - Code review with multi-model comparison
+4. **document_summarizer.py** - Batch document summarization with progress tracking
+5. **performance_benchmark.py** - Performance benchmarking tool for latency/cost/memory
+6. **router_example.py** - Intelligent model routing demonstrations
 
-**Target Completion:** February 9, 2026
+All examples are fully working and verified (✅ Feb 3, 2026):
+```bash
+python examples/router_example.py
+python examples/chatbot.py --model gpt-4o-mini
+python examples/code_reviewer.py mycode.py --compare
+python examples/document_summarizer.py docs/*.txt
+python examples/performance_benchmark.py --requests 5
+python examples/caching_examples.py
+```
 
 ## Documentation
 
 ### Core Documentation
 - **README.md** - This file (project overview and setup)
-- **docs/project-status.md** - Detailed 7-week timeline with phase breakdowns
+- **WARP.md** - Development environment guidance and project status
 - **docs/stratumai-technical-approach.md** - Comprehensive technical design (1,232 lines)
-- **WARP.md** - Development environment guidance for Warp AI
+- **docs/project-status.md** - Detailed implementation timeline
+
+## Testing
+
+The project has comprehensive test coverage:
+- **Unit Tests**: 77+ tests for core functionality
+- **Integration Tests**: Provider-specific tests for all 8 providers
+- **Router Tests**: 33 tests for intelligent model selection
+- **Phase 7.1 Tests**: 19 tests for token counting, chunking, and summarization
+
+Run tests with:
+```bash
+pytest                    # Run all tests
+pytest -v                 # Verbose output
+pytest tests/test_*.py    # Specific test file
+```
 
 ## License
 
