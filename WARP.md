@@ -4,7 +4,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-StratumAI is a production-ready Python module that provides a unified, abstracted interface for accessing multiple frontier LLM providers (OpenAI, Anthropic, Google, DeepSeek, Groq, Grok, OpenRouter, Ollama) through a consistent API. The project demonstrates advanced API abstraction, design patterns (strategy, factory), multi-provider integration, production engineering (error handling, retry logic, cost tracking), and Python best practices (type hints, abstract base classes, decorators).
+StratumAI is a production-ready Python module that provides a unified, abstracted interface for accessing multiple frontier LLM providers (OpenAI, Anthropic, Google, DeepSeek, Groq, Grok, OpenRouter, Ollama, AWS Bedrock) through a consistent API. The project demonstrates advanced API abstraction, design patterns (strategy, factory), multi-provider integration, production engineering (error handling, retry logic, cost tracking), and Python best practices (type hints, abstract base classes, decorators).
 
 ## Development Environment Setup
 
@@ -30,6 +30,55 @@ source .venv/bin/activate
 
 # Install dependencies with uv
 uv pip install -r requirements.txt
+```
+
+### AWS Bedrock Setup
+
+For using AWS Bedrock models, you need to configure AWS credentials:
+
+**Option 1: Environment Variables**
+```bash
+export AWS_ACCESS_KEY_ID="your-access-key-id"
+export AWS_SECRET_ACCESS_KEY="your-secret-access-key"
+export AWS_DEFAULT_REGION="us-east-1"  # Optional, defaults to us-east-1
+```
+
+**Option 2: AWS Credentials File**
+```bash
+# Configure AWS CLI (creates ~/.aws/credentials)
+aws configure
+
+# Or manually create ~/.aws/credentials:
+mkdir -p ~/.aws
+cat > ~/.aws/credentials << EOF
+[default]
+aws_access_key_id = your-access-key-id
+aws_secret_access_key = your-secret-access-key
+EOF
+```
+
+**Option 3: IAM Roles** (when running on AWS EC2/ECS/Lambda)
+- No explicit credentials needed
+- boto3 automatically uses the instance's IAM role
+
+**Supported Bedrock Models:**
+- Anthropic Claude: `anthropic.claude-3-5-sonnet-20241022-v2:0`, `anthropic.claude-3-5-haiku-20241022-v1:0`
+- Meta Llama: `meta.llama3-3-70b-instruct-v1:0`, `meta.llama3-2-90b-instruct-v1:0`
+- Mistral AI: `mistral.mistral-large-2407-v1:0`
+- Amazon Titan: `amazon.titan-text-premier-v1:0`
+- Cohere: `cohere.command-r-plus-v1:0`
+
+**Permissions Required:**
+Your AWS IAM user/role must have the `bedrock:InvokeModel` permission:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+    "Resource": "*"
+  }]
+}
 ```
 
 ## Project Structure
@@ -60,7 +109,8 @@ stratumai/
         ├── groq.py                     # Groq implementation
         ├── grok.py                     # Grok (X.AI) implementation
         ├── openrouter.py               # OpenRouter implementation
-        └── ollama.py                   # Ollama local models
+        ├── ollama.py                   # Ollama local models
+        └── bedrock.py                  # AWS Bedrock implementation
 ```
 
 ## Testing
@@ -122,9 +172,9 @@ pip freeze > requirements.txt
 
 ## Project Status
 
-**Current Phase:** Phase 7.4 - Complete ✅  
-**Progress:** Phases 1-6 + Phase 7.1-7.4 Complete  
-**Latest Updates:** Phase 7.4 complete - Enhanced Caching UI operational (Feb 3, 2026)
+**Current Phase:** Phase 7.5 - Complete ✅  
+**Progress:** Phases 1-6 + Phase 7.1-7.5 Complete  
+**Latest Updates:** Phase 7.5 complete - RAG/Vector DB Integration operational (Feb 3, 2026)
 
 ### Completed Phases
 - ✅ Phase 1: Core Implementation (100%)
@@ -138,7 +188,7 @@ pip freeze > requirements.txt
   - OpenAICompatibleProvider base class
   - Google, DeepSeek, Groq, Grok, Ollama, OpenRouter providers
   - 77 total tests passing
-  - All 8 providers operational
+  - All 9 providers operational (added AWS Bedrock)
 - ✅ Phase 3: Advanced Features (100%)
   - Enhanced streaming support
   - Cost tracking module with history
@@ -206,33 +256,42 @@ pip freeze > requirements.txt
   - /save command to export assistant responses with metadata
   - Smart default filenames with timestamps (response_provider_model_timestamp.md)
   - Full metadata in saved files (provider, model, tokens, cost, timestamp)
+- ✅ Phase 7.5: RAG/Vector DB Integration (100%)
+  - Embeddings module with OpenAI provider (236 lines)
+  - Vector database module with ChromaDB (344 lines)
+  - RAG pipeline with document indexing and querying (378 lines)
+  - Semantic search with configurable top-k retrieval
+  - Citation tracking for source attribution
+  - Example script with 4 demonstrations (287 lines)
+  - ChromaDB dependency integration
 
 ### Current Focus (Week 7+: Feb 3+)
-**Phase 7.5: RAG/Vector DB Integration**
-- 📝 Vector database integration
-- 📝 Embedding generation
-- 📝 Semantic search
+**Phase 7.5: RAG/Vector DB Integration** ✅ COMPLETE
+- ✅ Vector database integration (ChromaDB)
+- ✅ Embedding generation (OpenAI)
+- ✅ Semantic search
+- ✅ RAG pipeline with document indexing
+- ✅ Query pipeline with LLM generation
+- ✅ Example scripts demonstrating usage
 
 **Future Phases:**
-- 📝 Phase 7.5: RAG/Vector DB Integration
 - 📝 Phase 8: Production Deployment
 
 ### Implementation Phases
 1. **Week 1 (Phase 1):** ✅ Core Implementation - BaseProvider, OpenAI, unified client
-2. **Week 2 (Phase 2):** ✅ Provider Expansion - All 8 providers operational
+2. **Week 2 (Phase 2):** ✅ Provider Expansion - All 9 providers operational (added AWS Bedrock)
 3. **Week 3 (Phase 3):** ✅ Advanced Features - Streaming, cost tracking, retry logic
 4. **Week 4 (Phase 3.5):** ✅ Web GUI - FastAPI REST API, WebSocket streaming, frontend interface
 5. **Week 5 (Phase 4):** ✅ Router and Optimization - Intelligent model selection
 6. **Week 6 (Phase 5):** ✅ CLI Interface - Rich/Typer terminal interface (COMPLETE)
 7. **Week 7 (Phase 6):** 📝 Production Readiness - Documentation, examples, PyPI package
 
-### Next Steps (Immediate - Phase 7.5)
-- 📝 Vector database integration
-- 📝 Embedding generation
-- 📝 Semantic search
+### Next Steps (Immediate - Phase 8)
+- 📝 Production deployment preparation
+- 📝 PyPI package publishing
+- 📝 Documentation finalization
 
 ### Future Work
-- 📝 Phase 7.5: RAG/Vector DB Integration
 - 📝 Phase 8: Production Deployment
 
 ## Documentation

@@ -15,6 +15,7 @@ from .providers.groq import GroqProvider
 from .providers.grok import GrokProvider
 from .providers.openrouter import OpenRouterProvider
 from .providers.ollama import OllamaProvider
+from .providers.bedrock import BedrockProvider
 
 
 class ProviderType(str, Enum):
@@ -27,6 +28,7 @@ class ProviderType(str, Enum):
     GROK = "grok"
     OPENROUTER = "openrouter"
     OLLAMA = "ollama"
+    BEDROCK = "bedrock"
 
 
 class LLMClient:
@@ -42,6 +44,7 @@ class LLMClient:
         "grok": GrokProvider,
         "openrouter": OpenRouterProvider,
         "ollama": OllamaProvider,
+        "bedrock": BedrockProvider,
     }
     
     def __init__(

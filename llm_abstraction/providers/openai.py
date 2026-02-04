@@ -28,11 +28,10 @@ class OpenAIProvider(BaseProvider):
             config: Optional provider-specific configuration
             
         Raises:
-            AuthenticationError: If API key not provided
+            ValueError: If API key not provided (with helpful setup instructions)
         """
-        api_key = api_key or os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise AuthenticationError("openai")
+        from ..api_key_helper import get_api_key_or_error
+        api_key = get_api_key_or_error("openai", api_key)
         super().__init__(api_key, config)
         self._initialize_client()
     

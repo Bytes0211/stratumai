@@ -39,7 +39,16 @@ from .providers.groq import GroqProvider
 from .providers.grok import GrokProvider
 from .providers.ollama import OllamaProvider
 from .providers.openrouter import OpenRouterProvider
+from .providers.bedrock import BedrockProvider
 from .router import Router, RoutingStrategy, ModelMetadata
+from .embeddings import (
+    EmbeddingProvider,
+    EmbeddingResult,
+    OpenAIEmbeddingProvider,
+    create_embedding_provider,
+)
+from .vectordb import VectorDBClient, SearchResult
+from .rag import RAGClient, RAGResponse, IndexingResult
 
 __all__ = [
     # Core client
@@ -60,6 +69,7 @@ __all__ = [
     "GrokProvider",
     "OllamaProvider",
     "OpenRouterProvider",
+    "BedrockProvider",
     # Caching
     "ResponseCache",
     "cache_response",
@@ -76,6 +86,18 @@ __all__ = [
     "Router",
     "RoutingStrategy",
     "ModelMetadata",
+    # Embeddings
+    "EmbeddingProvider",
+    "EmbeddingResult",
+    "OpenAIEmbeddingProvider",
+    "create_embedding_provider",
+    # Vector Database
+    "VectorDBClient",
+    "SearchResult",
+    # RAG
+    "RAGClient",
+    "RAGResponse",
+    "IndexingResult",
     # Exceptions
     "LLMAbstractionError",
     "ProviderError",

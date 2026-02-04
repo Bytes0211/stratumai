@@ -24,6 +24,10 @@ from statistics import mean, median, stdev
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -56,7 +60,7 @@ class PerformanceBenchmark:
         
         # Measure router initialization
         start = time.time()
-        router = Router(client)
+        router = Router()
         router_init_time = time.time() - start
         
         # Measure cache initialization
@@ -130,17 +134,15 @@ class PerformanceBenchmark:
         """
         console.print(f"\n[cyan]Measuring router overhead ({num_iterations} iterations)...[/cyan]")
         
-        client = LLMClient()
-        router = Router(client)
+        router = Router(strategy=RoutingStrategy.HYBRID)
         messages = [Message(role="user", content="Test message for routing")]
         
-        # Measure direct routing (no API calls)
+        # Measure routing decision overhead (no API calls)
         routing_times = []
         for i in range(num_iterations):
             start = time.time()
-            complexity = router.analyze_complexity(messages)
-            # Simulate routing decision
-            model = router.select_model(complexity, RoutingStrategy.HYBRID)
+            # route() performs complexity analysis and model selection
+            provider, model = router.route(messages)
             routing_times.append((time.time() - start) * 1000)
         
         return {
@@ -228,7 +230,7 @@ class PerformanceBenchmark:
         client_mem = tracemalloc.get_traced_memory()[0] - baseline
         
         # Router
-        router = Router(client)
+        router = Router()
         router_mem = tracemalloc.get_traced_memory()[0] - baseline - client_mem
         
         # Cache with 1000 entries

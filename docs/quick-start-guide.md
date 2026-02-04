@@ -26,12 +26,14 @@ Select Provider
   6. grok
   7. ollama
   8. openrouter
+  9. bedrock (AWS)
 
-Choose provider: 
+Choose provider:
 ```
 
-**What to do**: Type a number (1-8) and press Enter
+**What to do**: Type a number (1-9) and press Enter
 - **Recommended for beginners**: Type `1` (OpenAI) or `2` (Anthropic)
+- **For AWS users**: Type `9` (Bedrock - requires AWS credentials)
 
 ### Step 2: Choose Your Model
 
@@ -170,6 +172,52 @@ You: exit
 ```
 (or type `quit`, `q`, or press Ctrl+C)
 
+## New: RAG (Semantic Search) Features ✨
+
+StratumAI now supports indexing documents into a vector database for semantic search and retrieval-augmented generation (RAG).
+
+### What is RAG?
+Instead of sending entire files to the AI (which costs tokens), RAG:
+1. Breaks your documents into small chunks
+2. Stores them in a searchable database
+3. Only retrieves relevant chunks when you ask questions
+4. Results in 95%+ token reduction for large document collections
+
+### Using RAG with Python
+
+```python
+from llm_abstraction import RAGClient
+
+# Initialize RAG
+rag = RAGClient()
+
+# Index a file or directory
+rag.index_file(
+    file_path="documentation.txt",
+    collection_name="my_docs"
+)
+
+# Query your documents
+response = rag.query(
+    collection_name="my_docs",
+    query="How do I configure authentication?"
+)
+
+print(response.content)
+print(f"Sources: {response.sources}")
+```
+
+### When to Use RAG
+- **Large document collections** (multiple files, >5MB total)
+- **Repeated queries** on the same documents
+- **Knowledge base** scenarios
+- **Document search** where you need to find specific information
+
+### When NOT to Use RAG
+- Single small files (<500KB)
+- One-time questions
+- When you need the AI to see the entire document structure
+
 ## Common Use Cases
 
 ### 1. Ask a Quick Question
@@ -227,6 +275,39 @@ python -m cli.stratumai_cli interactive
    You: Are these two files consistent?
    ```
 
+### 5. Query Large Document Collections (RAG)
+
+For very large document sets, use the Python API with RAG:
+
+```python
+from llm_abstraction import RAGClient
+
+# Initialize
+rag = RAGClient()
+
+# Index all your documentation
+rag.index_directory(
+    directory_path="./project_docs",
+    collection_name="project_knowledge",
+    file_patterns=["*.txt", "*.md"]
+)
+
+# Query across all documents
+response = rag.query(
+    collection_name="project_knowledge",
+    query="How do I deploy the application?",
+    n_results=5  # Retrieve top 5 most relevant chunks
+)
+
+print(response.content)
+```
+
+This approach:
+- Indexes once, query many times
+- 95%+ token reduction vs. sending all files
+- Much faster for large document sets
+- Includes source citations
+
 ## Don't Worry About Mistakes!
 
 StratumAI is designed to be forgiving. If you make a mistake:
@@ -268,6 +349,7 @@ Select model: 2
 6. **Large files**: If prompted about a large file, choose `n` unless you're sure you need it
 7. **Interactive mode**: Use this for back-and-forth conversations where the AI needs context from previous messages
 8. **Exit anytime**: Press Ctrl+C to exit immediately if you're stuck
+9. **Large document collections**: For multiple large files (>5MB total), consider using RAG (see examples above)
 
 ## Troubleshooting
 
@@ -296,3 +378,5 @@ Select model: 2
 - Read the full documentation: `docs/file-attachments.md`
 - Check available commands: `python -m cli.stratumai_cli --help`
 - For interactive mode: `python -m cli.stratumai_cli interactive --help`
+- RAG examples: See `examples/rag_example.py` for complete demonstrations
+- API Reference: `docs/API-REFERENCE.md`

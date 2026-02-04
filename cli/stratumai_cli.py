@@ -27,7 +27,7 @@ from pathlib import Path
 # Initialize Typer app and Rich console
 app = typer.Typer(
     name="stratumai",
-    help="StratumAI - Unified LLM CLI across 8 providers",
+    help="StratumAI - Unified LLM CLI across 9 providers",
     add_completion=True,
 )
 console = Console()
@@ -40,7 +40,7 @@ def chat(
         None,
         "--provider", "-p",
         envvar="STRATUMAI_PROVIDER",
-        help="LLM provider (openai, anthropic, google, deepseek, groq, grok, ollama, openrouter)"
+        help="LLM provider (openai, anthropic, google, deepseek, groq, grok, ollama, openrouter, bedrock)"
     ),
     model: Optional[str] = typer.Option(
         None,
@@ -145,7 +145,7 @@ def _chat_impl(
         if not provider:
             prompted_for_provider = True
             console.print("\n[bold cyan]Select Provider[/bold cyan]")
-            providers_list = ["openai", "anthropic", "google", "deepseek", "groq", "grok", "ollama", "openrouter"]
+            providers_list = ["openai", "anthropic", "google", "deepseek", "groq", "grok", "ollama", "openrouter", "bedrock"]
             for i, p in enumerate(providers_list, 1):
                 console.print(f"  {i}. {p}")
             
@@ -809,7 +809,7 @@ def interactive(
         # Prompt for provider and model if not provided
         if not provider:
             console.print("\n[bold cyan]Select Provider[/bold cyan]")
-            providers_list = ["openai", "anthropic", "google", "deepseek", "groq", "grok", "ollama", "openrouter"]
+            providers_list = ["openai", "anthropic", "google", "deepseek", "groq", "grok", "ollama", "openrouter", "bedrock"]
             for i, p in enumerate(providers_list, 1):
                 console.print(f"  {i}. {p}")
             
@@ -1550,6 +1550,87 @@ def cache_clear(
     except Exception as e:
         console.print(f"[red]Error clearing cache:[/red] {e}")
         raise typer.Exit(1)
+
+
+@app.command()
+def setup():
+    """
+    Interactive API key setup wizard.
+    
+    Shows which providers have API keys configured and provides
+    links to get API keys for providers you want to use.
+    """
+    from llm_abstraction.api_key_helper import (
+        APIKeyHelper,
+        print_setup_instructions
+    )
+    
+    console.print("\n[bold cyan]🔑 StratumAI Setup Wizard[/bold cyan]\n")
+    
+    # Create .env from .env.example if needed
+    if APIKeyHelper.create_env_file_if_missing():
+        console.print("[green]✓[/green] Created .env file from .env.example")
+        console.print("[dim]  Edit .env to add your API keys[/dim]\n")
+    elif not Path(".env").exists():
+        console.print("[yellow]⚠[/yellow]  .env file not found")
+        console.print("[dim]  Create one by copying .env.example[/dim]\n")
+    
+    # Show current status
+    print_setup_instructions()
+    
+    # Instructions
+    console.print("\n[bold cyan]Next Steps:[/bold cyan]")
+    console.print("  1. Edit .env file and add API keys for providers you want to use")
+    console.print("  2. Run [green]stratumai check-keys[/green] to verify your setup")
+    console.print("  3. Test with: [cyan]stratumai chat -p openai -m gpt-4o-mini 'Hello'[/cyan]\n")
+
+
+@app.command(name="check-keys")
+def check_keys():
+    """
+    Check which providers have API keys configured.
+    
+    Displays a status report showing which providers are ready to use
+    and which ones need API keys.
+    """
+    from llm_abstraction.api_key_helper import APIKeyHelper
+    
+    available = APIKeyHelper.check_available_providers()
+    
+    console.print("\n[bold cyan]🔑 API Key Status[/bold cyan]\n")
+    
+    # Count configured providers
+    configured_count = sum(1 for v in available.values() if v)
+    total_count = len(available)
+    
+    # Create status table
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Provider", style="cyan")
+    table.add_column("Status", justify="center")
+    table.add_column("Environment Variable", style="dim")
+    
+    for provider in sorted(available.keys()):
+        is_available = available[provider]
+        status = "[green]✓ Configured[/green]" if is_available else "[red]✗ Missing[/red]"
+        friendly_name = APIKeyHelper.PROVIDER_FRIENDLY_NAMES.get(provider, provider)
+        env_key = APIKeyHelper.PROVIDER_ENV_KEYS.get(provider, "N/A")
+        
+        table.add_row(friendly_name, status, env_key)
+    
+    console.print(table)
+    
+    # Summary
+    if configured_count == 0:
+        console.print(f"\n[yellow]⚠ No providers configured[/yellow]")
+        console.print("[dim]Run [cyan]stratumai setup[/cyan] to get started[/dim]\n")
+    elif configured_count == total_count:
+        console.print(f"\n[green]✓ All {total_count} providers configured![/green]\n")
+    else:
+        console.print(f"\n[cyan]{configured_count}/{total_count} providers configured[/cyan]\n")
+    
+    # Help tip
+    if configured_count < total_count:
+        console.print("[dim]💡 Tip: Run [cyan]stratumai setup[/cyan] to see how to configure missing providers[/dim]\n")
 
 
 def main():

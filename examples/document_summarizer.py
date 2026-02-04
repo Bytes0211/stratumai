@@ -21,9 +21,13 @@ from typing import List, Dict, Any
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from rich.table import Table
+from dotenv import load_dotenv
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Load environment variables
+load_dotenv()
 
 from llm_abstraction import LLMClient, Router, RoutingStrategy, CostTracker
 from llm_abstraction.models import Message
@@ -57,8 +61,7 @@ class DocumentSummarizer:
         
         if use_router:
             self.router = Router(
-                self.client,
-                default_strategy=RoutingStrategy.COST  # Optimize for cost
+                strategy=RoutingStrategy.COST  # Optimize for cost
             )
     
     def load_document(self, file_path: Path) -> str:
@@ -116,9 +119,11 @@ Document:
         try:
             # Route or use fixed model
             if self.use_router:
-                response = self.router.route(
+                provider, model = self.router.route(messages=messages)
+                response = self.client.chat(
+                    model=model,
                     messages=messages,
-                    strategy=RoutingStrategy.COST
+                    temperature=0.3  # Lower temp for factual summaries
                 )
             else:
                 response = self.client.chat(
@@ -262,9 +267,9 @@ Document:
         console.print(f"  Total Cost: [yellow]${summary['total_cost']:.4f}[/yellow]")
         console.print(f"  Total Calls: {summary['total_calls']}")
         
-        if summary['by_provider']:
+        if summary['cost_by_provider']:
             console.print("\n  By Provider:")
-            for provider, cost in summary['by_provider'].items():
+            for provider, cost in summary['cost_by_provider'].items():
                 console.print(f"    - {provider}: ${cost:.4f}")
 
 

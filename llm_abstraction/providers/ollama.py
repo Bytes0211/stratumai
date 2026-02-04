@@ -27,7 +27,8 @@ class OllamaProvider(OpenAICompatibleProvider):
             Default base URL is http://localhost:11434/v1
         """
         # Ollama doesn't require an API key, use placeholder
-        api_key = api_key or os.getenv("OLLAMA_API_KEY", "ollama")
+        from ..api_key_helper import APIKeyHelper
+        api_key = APIKeyHelper.get_api_key("ollama", api_key) or "ollama"
         
         # Allow custom base URL via config
         base_url = PROVIDER_BASE_URLS["ollama"]

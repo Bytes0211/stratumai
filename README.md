@@ -1,15 +1,15 @@
 # StratumAI - Unified Intelligence Across Every Model Layer
 
-**Status:** Phase 7.3 Complete ✅ | 8 Providers Operational | Auto Model Selection
+**Status:** Phase 7.5 Complete ✅ | 9 Providers Operational | AWS Bedrock Support | RAG Integration
 
 ## Why This Project Matters
 
-StratumAI is a production-ready Python module that provides a unified, abstracted interface for accessing multiple frontier LLM providers (OpenAI, Anthropic, Google, DeepSeek, Groq, Grok, OpenRouter, Ollama) through a consistent API. It eliminates vendor lock-in, simplifies multi-model development, and enables intelligent routing between providers.
+StratumAI is a production-ready Python module that provides a unified, abstracted interface for accessing multiple frontier LLM providers (OpenAI, Anthropic, Google, DeepSeek, Groq, Grok, OpenRouter, Ollama, AWS Bedrock) through a consistent API. It eliminates vendor lock-in, simplifies multi-model development, and enables intelligent routing between providers.
 
 ## Key Skills Demonstrated
 
 - **API Abstraction & Design Patterns**: Strategy pattern, factory pattern, provider abstraction
-- **Multi-Provider Integration**: 8 LLM providers with unified interface
+- **Multi-Provider Integration**: 9 LLM providers with unified interface (including AWS Bedrock)
 - **Production Engineering**: Error handling, retry logic, cost tracking, budget management
 - **Python Best Practices**: Type hints, dataclasses, abstract base classes, decorators
 - **Testing & Quality**: Unit tests, integration tests, 80%+ coverage target
@@ -23,7 +23,7 @@ StratumAI is a multi-provider LLM abstraction module that allows developers/user
 
 **Core Platform:**
 
-- **Unified Interface**: Single API for all LLM providers (OpenAI, Anthropic, Google, DeepSeek, Groq, Grok, OpenRouter, Ollama)
+- **Unified Interface**: Single API for all LLM providers (OpenAI, Anthropic, Google, DeepSeek, Groq, Grok, OpenRouter, Ollama, AWS Bedrock)
 - **Zero-Lock-In**: Switch models without code changes
 - **Cost Tracking**: Automatic token usage and cost calculation per request
 - **Automatic Retry**: Exponential backoff with fallback model support
@@ -34,7 +34,7 @@ StratumAI is a multi-provider LLM abstraction module that allows developers/user
 
 - ✅ Project initialized with comprehensive technical design (1,232 lines)
 - ✅ 7-week implementation roadmap completed
-- ✅ 8 provider implementations complete
+- ✅ 9 provider implementations complete (including AWS Bedrock)
 - ✅ Streaming support for all providers
 - ✅ Cost tracking accurate to $0.0001
 - ✅ Production-ready error handling and retry logic
@@ -43,6 +43,7 @@ StratumAI is a multi-provider LLM abstraction module that allows developers/user
 - ✅ Rich/Typer CLI for terminal usage (Phase 5 Complete)
 - ✅ Large file handling with chunking and extraction (Phase 7.1-7.2)
 - ✅ Automatic model selection for file types (Phase 7.3 Complete)
+- ✅ RAG/Vector DB Integration with semantic search (Phase 7.5 Complete)
 
 ## Architecture Overview
 
@@ -54,7 +55,7 @@ StratumAI is a multi-provider LLM abstraction module that allows developers/user
 **Core Components:**
 1. **BaseProvider**: Abstract interface that all providers implement
 2. **LLMClient**: Unified client with provider detection and routing
-3. **Provider Implementations**: 8 providers (OpenAI, Anthropic, Google, DeepSeek, Groq, Grok, OpenRouter, Ollama)
+3. **Provider Implementations**: 9 providers (OpenAI, Anthropic, Google, DeepSeek, Groq, Grok, OpenRouter, Ollama, AWS Bedrock)
 4. **Cost Tracker**: Track usage and enforce budget limits
 5. **Router**: Intelligent model selection based on complexity analysis
 6. **Decorators**: Logging, caching, retry utilities
@@ -73,6 +74,7 @@ User → LLMClient → Provider Detection → Provider Implementation → LLM AP
 - **OpenAI SDK**: For OpenAI and OpenAI-compatible providers
 - **Anthropic SDK**: For Claude models
 - **Google Generative AI SDK**: For Gemini models
+- **boto3**: For AWS Bedrock models
 
 ### Development
 - **Languages:** Python 3.10+
@@ -82,43 +84,106 @@ User → LLMClient → Provider Detection → Provider Implementation → LLM AP
 - **Version Control:** Git with conventional commits
 - **Documentation:** Markdown, docstrings
 
-## Setup Instructions
+## Quick Start
+
+### 1. Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/Bytes0211/stratumai.git
+cd stratumai
+
+# Install dependencies
+pip install -e .
+
+# Or using uv (recommended)
+uv sync
+```
+
+### 2. Configure API Keys
+
+**You only need keys for providers you plan to use.**
+
+```bash
+# Option 1: Use the interactive setup wizard
+stratumai setup
+
+# Option 2: Manual setup
+cp .env.example .env
+# Edit .env and add at least one API key
+```
+
+**Get API Keys:**
+- **OpenAI**: https://platform.openai.com/api-keys
+- **Anthropic**: https://console.anthropic.com/settings/keys
+- **Google Gemini**: https://makersuite.google.com/app/apikey
+- **AWS Bedrock**: https://docs.aws.amazon.com/bedrock/
+- **DeepSeek**: https://platform.deepseek.com/api-docs/
+- **Groq**: https://console.groq.com/keys
+- **Grok (X.AI)**: https://x.ai/api
+- **OpenRouter**: https://openrouter.ai/keys
+- **Ollama**: https://ollama.ai/download (local, no key needed)
+
+### 3. Verify Setup
+
+```bash
+# Check which providers are ready
+stratumai check-keys
+
+# Expected output:
+# ✓ OpenAI (OPENAI_API_KEY)
+# ✗ Anthropic (ANTHROPIC_API_KEY)
+# ...
+```
+
+### 4. Test with a Quick Chat
+
+```bash
+# Simple chat
+stratumai chat -p openai -m gpt-4o-mini -t "Hello!"
+
+# Interactive mode (recommended for exploration)
+stratumai interactive
+```
+
+### 5. Use in Your Code
+
+```python
+from llm_abstraction import LLMClient
+from llm_abstraction.models import Message
+
+# Option 1: Use environment variables (.env file)
+client = LLMClient(provider="openai")
+
+# Option 2: Pass API key explicitly
+client = LLMClient(provider="openai", api_key="your-key-here")
+
+# Make a request
+response = client.chat(
+    model="gpt-4o-mini",
+    messages=[Message(role="user", content="Hello!")]
+)
+
+print(response.content)
+print(f"Cost: ${response.usage.cost_usd:.6f}")
+```
+
+## Detailed Setup Instructions
 
 ### Prerequisites
-- Python 3.12+ with venv support
+- Python 3.10+ with venv support
 - uv (recommended) or pip for package management
 
-### Initial Setup
+### Optional: Web GUI
 
-1. **Install dependencies:**
-   ```bash
-   # Using uv (recommended)
-   uv sync
-   
-   # Or using pip
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -e .
-   ```
+```bash
+# Install FastAPI dependencies
+pip install fastapi uvicorn websockets
 
-2. **Configure API keys:**
-   ```bash
-   # Create .env file with your API keys
-   cp .env.example .env
-   # Edit .env and add your keys
-   ```
-
-3. **Run the CLI:**
-   ```bash
-   # Install CLI dependencies
-   pip install typer[all]
-   
-   # Use the CLI
-   python -m cli.stratumai_cli chat -p openai -m gpt-4o-mini -t "Hello"
-   
-   # Or run the Web GUI (optional)
-   uv run uvicorn api.main:app --reload
-   ```
+# Run web interface
+uvicorn api.main:app --reload
+# Open http://localhost:8000
+```
 
 ## Project Structure
 
@@ -168,13 +233,14 @@ stratumai/
         ├── groq.py                     # Groq implementation
         ├── grok.py                     # Grok (X.AI) implementation
         ├── openrouter.py               # OpenRouter implementation
-        └── ollama.py                   # Ollama local models
+        ├── ollama.py                   # Ollama local models
+        └── bedrock.py                  # AWS Bedrock implementation
 ```
 
 ## Key Features
 
 ### Core Features
-- **Unified Interface**: Single API for 8 LLM providers
+- **Unified Interface**: Single API for 9 LLM providers
 - **Provider Abstraction**: BaseProvider interface with consistent methods
 - **Automatic Provider Detection**: Infer provider from model name
 - **Cost Calculation**: Per-request token usage and cost tracking
@@ -236,11 +302,22 @@ stratumai/
 - **Token Warnings**: Alert when approaching model context limits (>80%)
 - **Reduction Stats**: Display token reduction percentage after summarization
 
+### RAG (Retrieval-Augmented Generation) Features ✨ NEW
+- **Vector Database**: ChromaDB integration for document storage
+- **Embeddings**: OpenAI text-embedding-3-small/large support with cost tracking
+- **Semantic Search**: Retrieve relevant document chunks based on query similarity
+- **Document Indexing**: Index single files or entire directories with automatic chunking
+- **RAG Pipeline**: Complete end-to-end RAG with context retrieval and LLM generation
+- **Citation Tracking**: Source attribution for all retrieved chunks
+- **Collection Management**: Create, list, and delete vector database collections
+- **Configurable Retrieval**: Adjust top-k results and chunk sizes
+- **Example Scripts**: 4 demonstrations showing basic usage, directory indexing, retrieval-only, and collection management
+
 ## Project Status
 
-**Current Phase:** Phase 7.4 - Enhanced Caching UI ✅ COMPLETE
+**Current Phase:** Phase 7.5 - RAG/Vector DB Integration ✅ COMPLETE
 
-**Progress:** Phases 1-6 Complete + Phase 7.1-7.4 Complete
+**Progress:** Phases 1-6 Complete + Phase 7.1-7.5 Complete
 
 **Completed Phases:**
 - ✅ **Phase 1:** Core Implementation (5/5 tasks)
@@ -255,7 +332,7 @@ stratumai/
   - OpenAICompatibleProvider base class
   - Google, DeepSeek, Groq, Grok, Ollama, OpenRouter providers
   - 77 total tests passing
-  - All 8 providers operational
+  - All 9 providers operational (added AWS Bedrock)
 
 - ✅ **Phase 3:** Advanced Features (6/6 tasks)
   - Cost tracking module with analytics
@@ -322,13 +399,22 @@ stratumai/
   - Enhanced ResponseCache with hit/miss tracking and cost analytics
   - cache-stats command with --detailed flag for entry inspection
   - cache-clear command with confirmation prompt
-  - Visual hit rate indicators (🎯 ≥75%, ⚠️ ≥50%, 📉 <50%)
-  - Cost savings analysis showing total saved and average per hit
+  - Visual hit rate indicators and cost savings analysis
   - 11 unit tests passing (100%)
 
+- ✅ **Phase 7.5:** RAG/Vector DB Integration (3/3 tasks)
+  - Embeddings module with OpenAI provider (236 lines)
+  - Vector database module with ChromaDB (344 lines)
+  - RAG pipeline with document indexing and querying (378 lines)
+  - Semantic search with configurable top-k retrieval
+  - Citation tracking for source attribution
+  - Example script with 4 demonstrations (287 lines)
+  - ChromaDB dependency integration
+
 **Next Steps:**
-- 📝 Phase 7.5: RAG/Vector DB Integration (ChromaDB)
 - 📝 Phase 8: Production Deployment
+- 📝 PyPI package publishing
+- 📝 Documentation finalization
 
 ## Usage Examples
 
@@ -435,6 +521,12 @@ response = client.chat(
     model="gemini-2.5-flash-lite",
     messages=[{"role": "user", "content": "Hello!"}]
 )
+
+# Switch to AWS Bedrock - same interface!
+response = client.chat(
+    model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
 ```
 
 ### Streaming Responses
@@ -501,7 +593,7 @@ python examples/caching_examples.py
 
 The project has comprehensive test coverage:
 - **Unit Tests**: 77+ tests for core functionality
-- **Integration Tests**: Provider-specific tests for all 8 providers
+- **Integration Tests**: Provider-specific tests for all 9 providers
 - **Router Tests**: 33 tests for intelligent model selection
 - **Phase 7.1 Tests**: 19 tests for token counting, chunking, and summarization
 

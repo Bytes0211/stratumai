@@ -25,8 +25,12 @@ from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 from rich.table import Table
 from rich.markdown import Markdown
+from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Load environment variables
+load_dotenv()
 
 from llm_abstraction import LLMClient, CostTracker
 from llm_abstraction.models import Message

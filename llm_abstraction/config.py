@@ -185,6 +185,10 @@ PROVIDER_CONSTRAINTS: Dict[str, Dict[str, Any]] = {
         "min_temperature": 0.0,
         "max_temperature": 2.0,
     },
+    "bedrock": {
+        "min_temperature": 0.0,
+        "max_temperature": 1.0,
+    },
 }
 
 # Anthropic Model Catalog
@@ -889,6 +893,119 @@ OLLAMA_MODELS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# AWS Bedrock Model Catalog (Native SDK)
+BEDROCK_MODELS: Dict[str, Dict[str, Any]] = {
+    # Anthropic Claude 3.5 Models
+    "anthropic.claude-3-5-sonnet-20241022-v2:0": {
+        "context": 200000,
+        "cost_input": 3.0,
+        "cost_output": 15.0,
+        "supports_vision": True,
+        "supports_tools": True,
+        "supports_caching": False,  # Bedrock doesn't support prompt caching yet
+    },
+    "anthropic.claude-3-5-haiku-20241022-v1:0": {
+        "context": 200000,
+        "cost_input": 1.0,
+        "cost_output": 5.0,
+        "supports_vision": True,
+        "supports_tools": True,
+        "supports_caching": False,
+    },
+    # Anthropic Claude 3 Models
+    "anthropic.claude-3-opus-20240229-v1:0": {
+        "context": 200000,
+        "cost_input": 15.0,
+        "cost_output": 75.0,
+        "supports_vision": True,
+        "supports_tools": True,
+        "supports_caching": False,
+    },
+    "anthropic.claude-3-sonnet-20240229-v1:0": {
+        "context": 200000,
+        "cost_input": 3.0,
+        "cost_output": 15.0,
+        "supports_vision": True,
+        "supports_tools": True,
+        "supports_caching": False,
+    },
+    "anthropic.claude-3-haiku-20240307-v1:0": {
+        "context": 200000,
+        "cost_input": 0.25,
+        "cost_output": 1.25,
+        "supports_vision": True,
+        "supports_tools": True,
+        "supports_caching": False,
+    },
+    # Meta Llama Models
+    "meta.llama3-3-70b-instruct-v1:0": {
+        "context": 128000,
+        "cost_input": 0.99,
+        "cost_output": 0.99,
+        "supports_vision": False,
+        "supports_tools": False,
+    },
+    "meta.llama3-2-90b-instruct-v1:0": {
+        "context": 128000,
+        "cost_input": 1.20,
+        "cost_output": 1.20,
+        "supports_vision": False,
+        "supports_tools": False,
+    },
+    "meta.llama3-1-70b-instruct-v1:0": {
+        "context": 128000,
+        "cost_input": 0.99,
+        "cost_output": 0.99,
+        "supports_vision": False,
+        "supports_tools": False,
+    },
+    "meta.llama3-1-8b-instruct-v1:0": {
+        "context": 128000,
+        "cost_input": 0.22,
+        "cost_output": 0.22,
+        "supports_vision": False,
+        "supports_tools": False,
+    },
+    # Mistral AI Models
+    "mistral.mistral-large-2402-v1:0": {
+        "context": 128000,
+        "cost_input": 3.0,
+        "cost_output": 9.0,
+        "supports_vision": False,
+        "supports_tools": True,
+    },
+    "mistral.mistral-small-2402-v1:0": {
+        "context": 32000,
+        "cost_input": 1.0,
+        "cost_output": 3.0,
+        "supports_vision": False,
+        "supports_tools": True,
+    },
+    # Amazon Titan Models
+    "amazon.titan-tg1-large": {
+        "context": 32000,
+        "cost_input": 0.50,
+        "cost_output": 1.50,
+        "supports_vision": False,
+        "supports_tools": False,
+    },
+    # Cohere Models
+    "cohere.command-r-plus-v1:0": {
+        "context": 128000,
+        "cost_input": 3.0,
+        "cost_output": 15.0,
+        "supports_vision": False,
+        "supports_tools": True,
+    },
+    "cohere.command-r-v1:0": {
+        "context": 128000,
+        "cost_input": 0.50,
+        "cost_output": 1.50,
+        "supports_vision": False,
+        "supports_tools": True,
+    },
+}
+
 # Unified model catalog
 MODEL_CATALOG: Dict[str, Dict[str, Dict[str, Any]]] = {
     "openai": OPENAI_MODELS,
@@ -899,6 +1016,7 @@ MODEL_CATALOG: Dict[str, Dict[str, Dict[str, Any]]] = {
     "grok": GROK_MODELS,
     "openrouter": OPENROUTER_MODELS,
     "ollama": OLLAMA_MODELS,
+    "bedrock": BEDROCK_MODELS,
 }
 
 # Provider base URLs for OpenAI-compatible providers
@@ -921,4 +1039,5 @@ PROVIDER_ENV_VARS: Dict[str, str] = {
     "grok": "GROK_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     "ollama": "OLLAMA_API_KEY",
+    "bedrock": "AWS_ACCESS_KEY_ID",  # AWS credentials (also uses AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN)
 }

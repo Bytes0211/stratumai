@@ -23,6 +23,11 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.markdown import Markdown
+from dotenv import load_dotenv
+    
+# Load environment variables
+load_dotenv()
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -44,8 +49,7 @@ class CodeReviewer:
         """
         self.client = LLMClient()
         self.router = Router(
-            self.client,
-            default_strategy=RoutingStrategy.QUALITY  # Prioritize quality
+            strategy=RoutingStrategy.QUALITY  # Prioritize quality
         )
         self.use_streaming = use_streaming
     
@@ -167,10 +171,8 @@ Provide a detailed code review."""
                     response = self.client.chat(model=model, messages=messages)
             else:
                 # Use router for quality selection
-                response = self.router.route(
-                    messages=messages,
-                    strategy=RoutingStrategy.QUALITY
-                )
+                provider, model = self.router.route(messages=messages)
+                response = self.client.chat(model=model, messages=messages)
             
             return {
                 "review": response.content,

@@ -1,5 +1,12 @@
 # Token Limit Quick Reference Guide
 
+**Last Updated:** February 3, 2026  
+**Status:** All major features implemented (Phases 7.1-7.5 complete)  
+**Providers:** 9 providers including AWS Bedrock  
+**Key Features:** Token estimation, chunking, extraction, auto-selection, caching, RAG/Vector DB
+
+---
+
 ## Token Capacity by Model
 
 | Provider | Model | Context Window | Estimated File Size |
@@ -10,6 +17,9 @@
 | Anthropic | Claude Opus 4.5 | 1M tokens* | ~4 MB* |
 | Google | Gemini 2.5 Pro/Flash | 1M tokens | ~4 MB |
 | OpenRouter | Grok 4.1 Fast | 1.8M tokens | ~7.2 MB |
+| AWS Bedrock | Claude 3.5 Sonnet | 200k tokens | ~800 KB |
+| AWS Bedrock | Llama 3.3 70B | 128k tokens | ~512 KB |
+| AWS Bedrock | Titan Premier | 32k tokens | ~128 KB |
 
 *Note: Claude Opus 4.5 has 200k API input limit despite 1M context window
 
@@ -43,7 +53,7 @@
 **Problem**: 50 MB documentation, only need relevant sections  
 **Solution**: Create vector DB, semantic search relevant chunks only  
 **Savings**: 95%+ token reduction  
-**Implementation**: Requires ChromaDB/Pinecone integration
+**Implementation**: ✅ ChromaDB integration available (Phase 7.5)
 
 ### 6. Compression (Best for: Repetitive data)
 **Problem**: Logs with duplicate entries  
@@ -72,20 +82,20 @@ File type specific:
 
 ## Implementation Priority
 
-### Immediate (Week 1)
-1. Token count estimation before upload
-2. Warning when file exceeds model context
-3. Basic chunking implementation
+### ✅ Completed (Phase 7.1-7.5)
+1. ✅ Token count estimation before upload (Phase 7.1)
+2. ✅ Warning when file exceeds model context (Phase 7.1)
+3. ✅ Smart chunking implementation (Phase 7.1)
+4. ✅ Intelligent extraction for CSV/JSON/logs/code (Phase 7.2)
+5. ✅ Auto-model selection based on file size (Phase 7.3)
+6. ✅ Enhanced caching UI with analytics (Phase 7.4)
+7. ✅ RAG/Vector DB integration with ChromaDB (Phase 7.5)
+8. ✅ AWS Bedrock provider (9th provider - Feb 3, 2026)
 
-### Short-term (Week 2-3)
-4. Intelligent extraction for CSV/JSON/logs
-5. Auto-model selection based on file size
-6. Enhanced file upload UI
-
-### Medium-term (Week 4+)
-7. Prompt caching support
-8. File compression utilities
-9. RAG/vector DB integration (optional)
+### Future Enhancements
+9. File compression utilities
+10. Additional vector DB backends (Pinecone, Weaviate)
+11. Advanced RAG strategies (HyDE, multi-query)
 
 ## Example Scenarios
 
@@ -125,12 +135,41 @@ stratumai analyze server.log --extract errors
 ### Scenario 4: Very Large Document
 ```bash
 # Problem: 8 MB documentation file
-stratumai upload docs.txt --auto-select-model
+python -m cli.stratumai_cli chat --file docs.txt --auto-select
 
 # Result:
 # - Auto-selected: google/gemini-2.5-pro (1M context)
 # - File size: 8 MB ≈ 2M tokens (too large!)
 # - Fallback: chunking + summarization
+```
+
+### Scenario 5: RAG for Massive Documentation (✅ Now Available)
+```python
+# Problem: 50 MB documentation, need to query multiple times
+from llm_abstraction import RAGClient
+
+rag = RAGClient()
+
+# Index entire directory (one-time operation)
+result = rag.index_directory(
+    directory_path="./docs",
+    collection_name="my_docs",
+    chunk_size=1000
+)
+# Indexed 450 chunks from 50 MB → stored in vector DB
+
+# Query with semantic search (retrieves only relevant chunks)
+response = rag.query(
+    collection_name="my_docs",
+    query="How do I configure authentication?",
+    n_results=5  # Only retrieve top 5 relevant chunks
+)
+
+# Result:
+# - Retrieved: 5 most relevant chunks (~5k tokens)
+# - Cost: $0.02 (vs. $25 for full 50 MB file)
+# - Reduction: 99%+ token savings
+# - Citations: Source attribution included
 ```
 
 ## Cost Comparison Table
@@ -181,41 +220,49 @@ if token_count > context_window * 0.8:
 ## CLI Commands Quick Reference
 
 ```bash
-# Current upload (with warnings)
-stratumai interactive --file large.txt
+# Interactive mode with file (includes token warnings)
+python -m cli.stratumai_cli interactive --file large.txt
 
-# Auto-select model for file size
-stratumai upload large.txt --auto-select-model
+# Chat with file and auto-select model
+python -m cli.stratumai_cli chat --file large.txt --auto-select
 
-# Chunk large file
-stratumai upload huge.txt --chunked --chunk-size 50000
+# Chunk large file (automatic with --chunked flag)
+python -m cli.stratumai_cli chat --file huge.txt --chunked --chunk-size 50000
 
-# Extract schema from CSV
-stratumai analyze data.csv --extract-mode schema
+# Analyze and extract schema from CSV
+python -m cli.stratumai_cli analyze data.csv
 
-# Extract errors from logs
-stratumai analyze server.log --extract errors
+# View cache statistics
+python -m cli.stratumai_cli cache-stats --detailed
 
-# Interactive with caching
-stratumai interactive-cached report.pdf --provider anthropic
+# Clear response cache
+python -m cli.stratumai_cli cache-clear
 
-# Compress before upload
-stratumai upload logs.txt --compress deduplicate
+# Interactive mode (supports /file command with auto-extraction)
+python -m cli.stratumai_cli interactive --provider anthropic
+# Within interactive: /file large.csv (prompts for extraction)
+
+# Use AWS Bedrock models
+python -m cli.stratumai_cli chat "Hello" --provider bedrock --model anthropic.claude-3-5-sonnet-20241022-v2:0
 ```
 
 ## Support Matrix
 
-| Solution | Implemented | Tested | Documented |
-|----------|-------------|--------|------------|
-| File size warnings | ✅ | ✅ | ✅ |
-| Token truncation | ✅ | ✅ | ✅ |
-| Long-context models | ✅ | ✅ | ✅ |
-| Chunking | ❌ | ❌ | ✅ |
-| Smart extraction | ❌ | ❌ | ✅ |
-| Model auto-select | ❌ | ❌ | ✅ |
-| Prompt caching | ⚠️ Partial | ⚠️ Partial | ✅ |
-| RAG/Vector DB | ❌ | ❌ | ✅ |
-| Compression | ❌ | ❌ | ✅ |
+| Solution | Implemented | Tested | Documented | Phase |
+|----------|-------------|--------|------------|-------|
+| File size warnings | ✅ | ✅ | ✅ | 7.1 |
+| Token estimation | ✅ | ✅ | ✅ | 7.1 |
+| Long-context models | ✅ | ✅ | ✅ | 1-2 |
+| Smart chunking | ✅ | ✅ | ✅ | 7.1 |
+| CSV schema extraction | ✅ | ✅ | ✅ | 7.2 |
+| JSON schema extraction | ✅ | ✅ | ✅ | 7.2 |
+| Log error extraction | ✅ | ✅ | ✅ | 7.2 |
+| Code structure extraction | ✅ | ✅ | ✅ | 7.2 |
+| Model auto-select | ✅ | ✅ | ✅ | 7.3 |
+| Prompt caching | ✅ | ✅ | ✅ | 6, 7.4 |
+| RAG/Vector DB (ChromaDB) | ✅ | ✅ | ✅ | 7.5 |
+| AWS Bedrock provider | ✅ | ✅ | ✅ | 2 (Feb 3) |
+| Compression utilities | ❌ | ❌ | ⚠️ | Future |
 
 Legend: ✅ Complete | ⚠️ Partial | ❌ Not implemented
 
