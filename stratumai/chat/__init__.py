@@ -1,16 +1,25 @@
 """Chat package for StratumAI provider-specific chat interfaces.
 
-This package provides convenient, provider-specific chat functions with
-sensible defaults for each supported LLM provider.
+This package provides convenient, provider-specific chat functions.
+Model must be specified for each request.
 
 Usage:
+    # Model is always required
     from stratumai.chat import openai, anthropic, google
+    response = await openai.chat("Hello!", model="gpt-4.1-mini")
     
-    # Quick chat with defaults
-    response = openai.chat("Hello, world!")
+    # Builder pattern (model required first)
+    from stratumai.chat import anthropic
+    client = (
+        anthropic
+        .with_model("claude-opus-4-5")
+        .with_system("You are a helpful assistant")
+        .with_developer("Use markdown formatting")
+    )
+    response = await client.chat("Hello!")
     
-    # With custom parameters
-    response = anthropic.chat(
+    # With additional parameters
+    response = await anthropic.chat(
         "Explain quantum computing",
         model="claude-sonnet-4-5",
         temperature=0.5,
@@ -18,6 +27,7 @@ Usage:
     )
 """
 
+from stratumai.chat.builder import ChatBuilder
 from stratumai.chat import (
     stratumai_openai as openai,
     stratumai_anthropic as anthropic,
@@ -31,6 +41,7 @@ from stratumai.chat import (
 )
 
 __all__ = [
+    "ChatBuilder",
     "openai",
     "anthropic",
     "google",

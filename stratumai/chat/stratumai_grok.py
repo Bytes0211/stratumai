@@ -1,9 +1,23 @@
 """Grok (X.AI) chat interface for StratumAI.
 
-Provides convenient functions for Grok chat completions with sensible defaults.
+Provides convenient functions for Grok chat completions.
+Model must be specified for each request.
 
-Default Model: grok-beta
 Environment Variable: GROK_API_KEY
+
+Usage:
+    # Model is always required
+    from stratumai.chat import grok
+    response = await grok.chat("Hello!", model="grok-beta")
+    
+    # Builder pattern (model required)
+    client = (
+        grok
+        .with_model("grok-2")
+        .with_system("You are a helpful assistant")
+        .with_developer("Use markdown")
+    )
+    response = await client.chat("Hello!")
 """
 
 import asyncio
@@ -11,9 +25,9 @@ from typing import AsyncIterator, Optional, Union
 
 from stratumai import LLMClient
 from stratumai.models import ChatResponse, Message
+from stratumai.chat.builder import ChatBuilder, create_module_builder
 
-# Default configuration
-DEFAULT_MODEL = "grok-beta"
+# Default configuration (no default model - must be specified)
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_MAX_TOKENS = None
 
@@ -29,10 +43,50 @@ def _get_client() -> LLMClient:
     return _client
 
 
+# Module-level builder for chaining
+_builder = create_module_builder(
+    provider="grok",
+    default_temperature=DEFAULT_TEMPERATURE,
+    default_max_tokens=DEFAULT_MAX_TOKENS,
+    client_factory=_get_client,
+)
+
+
+# Builder pattern methods (delegate to _builder)
+def with_model(model: str) -> ChatBuilder:
+    """Set the model to use. Returns a new ChatBuilder for chaining."""
+    return _builder.with_model(model)
+
+
+def with_system(prompt: str) -> ChatBuilder:
+    """Set the system prompt. Returns a new ChatBuilder for chaining."""
+    return _builder.with_system(prompt)
+
+
+def with_developer(instructions: str) -> ChatBuilder:
+    """Set developer instructions. Returns a new ChatBuilder for chaining."""
+    return _builder.with_developer(instructions)
+
+
+def with_temperature(temperature: float) -> ChatBuilder:
+    """Set the temperature. Returns a new ChatBuilder for chaining."""
+    return _builder.with_temperature(temperature)
+
+
+def with_max_tokens(max_tokens: int) -> ChatBuilder:
+    """Set max tokens. Returns a new ChatBuilder for chaining."""
+    return _builder.with_max_tokens(max_tokens)
+
+
+def with_options(**kwargs) -> ChatBuilder:
+    """Set additional options. Returns a new ChatBuilder for chaining."""
+    return _builder.with_options(**kwargs)
+
+
 async def chat(
     prompt: Union[str, list[Message]],
     *,
-    model: str = DEFAULT_MODEL,
+    model: str,
     system: Optional[str] = None,
     temperature: float = DEFAULT_TEMPERATURE,
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS,
@@ -44,7 +98,7 @@ async def chat(
 
     Args:
         prompt: User message string or list of Message objects.
-        model: Model name. Default: grok-beta
+        model: Model name (required). E.g., "grok-beta", "grok-2"
         system: Optional system prompt (ignored if prompt is list of Messages).
         temperature: Sampling temperature (0.0-2.0). Default: 0.7
         max_tokens: Maximum tokens to generate. Default: None (model default)
@@ -56,7 +110,7 @@ async def chat(
 
     Example:
         >>> from stratumai.chat import grok
-        >>> response = grok.chat("What is Python?")
+        >>> response = await grok.chat("What is Python?", model="grok-beta")
         >>> print(response.content)
     """
     client = _get_client()
@@ -83,7 +137,7 @@ async def chat(
 async def chat_stream(
     prompt: Union[str, list[Message]],
     *,
-    model: str = DEFAULT_MODEL,
+    model: str,
     system: Optional[str] = None,
     temperature: float = DEFAULT_TEMPERATURE,
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS,
@@ -94,7 +148,7 @@ async def chat_stream(
 
     Args:
         prompt: User message string or list of Message objects.
-        model: Model name. Default: grok-beta
+        model: Model name (required). E.g., "grok-beta"
         system: Optional system prompt (ignored if prompt is list of Messages).
         temperature: Sampling temperature (0.0-2.0). Default: 0.7
         max_tokens: Maximum tokens to generate. Default: None (model default)
@@ -105,7 +159,7 @@ async def chat_stream(
 
     Example:
         >>> from stratumai.chat import grok
-        >>> for chunk in grok.chat_stream("Tell me a story"):
+        >>> async for chunk in grok.chat_stream("Tell me a story", model="grok-beta"):
         ...     print(chunk.content, end="", flush=True)
     """
     return await chat(
@@ -122,7 +176,7 @@ async def chat_stream(
 def chat_sync(
     prompt,
     *,
-    model=DEFAULT_MODEL,
+    model: str,
     system=None,
     temperature=DEFAULT_TEMPERATURE,
     max_tokens=DEFAULT_MAX_TOKENS,

@@ -197,7 +197,7 @@ Home-page: https://github.com/yourusername/stratumai
 Author: Your Name
 Author-email: your.email@example.com
 Location: /home/scotton/dev/projects/stratumai
-Requires: anthropic, google-generativeai, httpx, openai, python-dotenv, rich, typer
+Requires: anthropic, google-genai, httpx, openai, python-dotenv, rich, typer
 ```
 
 ### 2. Test Python Import

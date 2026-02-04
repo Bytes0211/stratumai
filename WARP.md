@@ -94,15 +94,16 @@ stratumai/
 │   └── stratumai-technical-approach.md # Comprehensive technical design (1,232 lines)
 ├── chat/                               # Provider-specific chat modules
 │   ├── __init__.py                     # Package exports
-│   ├── stratumai_openai.py             # OpenAI (default: gpt-4o-mini)
-│   ├── stratumai_anthropic.py          # Anthropic (default: claude-3-5-sonnet)
-│   ├── stratumai_google.py             # Google (default: gemini-2.5-flash)
-│   ├── stratumai_deepseek.py           # DeepSeek (default: deepseek-chat)
-│   ├── stratumai_groq.py               # Groq (default: llama-3.3-70b)
-│   ├── stratumai_grok.py               # Grok (default: grok-beta)
-│   ├── stratumai_openrouter.py         # OpenRouter (default: llama-3.3-70b:free)
-│   ├── stratumai_ollama.py             # Ollama (default: llama3.2)
-│   └── stratumai_bedrock.py            # Bedrock (default: anthropic.claude-3-5-sonnet-20241022-v2:0)
+│   ├── builder.py                      # ChatBuilder class for fluent configuration
+│   ├── stratumai_openai.py             # OpenAI (model required)
+│   ├── stratumai_anthropic.py          # Anthropic (model required)
+│   ├── stratumai_google.py             # Google Gemini (model required)
+│   ├── stratumai_deepseek.py           # DeepSeek (model required)
+│   ├── stratumai_groq.py               # Groq (model required)
+│   ├── stratumai_grok.py               # Grok (model required)
+│   ├── stratumai_openrouter.py         # OpenRouter (model required)
+│   ├── stratumai_ollama.py             # Ollama (model required)
+│   └── stratumai_bedrock.py            # Bedrock (model required)
 └── llm_abstraction/                    # Main package
     ├── __init__.py
     ├── client.py                       # Unified LLMClient
@@ -185,9 +186,9 @@ pip freeze > requirements.txt
 
 ## Project Status
 
-**Current Phase:** Phase 7.7 - Async-First Conversion ✅  
-**Progress:** Phases 1-6 + Phase 7.1-7.7 Complete  
-**Latest Updates:** Phase 7.7 complete - Full async-first architecture conversion (Feb 4, 2026)
+**Current Phase:** Phase 7.8 - Builder Pattern & Required Model ✅  
+**Progress:** Phases 1-6 + Phase 7.1-7.8 Complete  
+**Latest Updates:** Phase 7.8 complete - Builder pattern for chat modules, model parameter now required (Feb 4, 2026)
 
 ### Completed Phases
 - ✅ Phase 1: Core Implementation (100%)
@@ -281,7 +282,6 @@ pip freeze > requirements.txt
   - ChromaDB dependency integration
 - ✅ Phase 7.6: Chat Package (100%)
   - Provider-specific chat modules (9 modules)
-  - Sensible default models per provider
   - Simplified API: `chat(prompt)` and `chat_stream(prompt)`
   - Optional system prompt, temperature, max_tokens parameters
   - Lazy client initialization for efficiency
@@ -300,15 +300,22 @@ pip freeze > requirements.txt
   - pytest-asyncio configuration added
   - Latency tracking (latency_ms) added to ChatResponse
   - CLI displays latency in response metadata
+- ✅ Phase 7.8: Builder Pattern & Required Model (100%)
+  - ChatBuilder class for fluent configuration chaining
+  - Builder methods: with_model(), with_system(), with_developer(), with_temperature(), with_max_tokens(), with_options()
+  - Model parameter now required (no defaults) - explicit over implicit
+  - All 9 chat modules updated to require model parameter
+  - chat() raises ValueError if model not specified
+  - 28 builder unit tests passing (tests/test_chat_builder.py)
+  - 13 async operations tests passing (tests/test_async_operations.py)
 
 ### Current Focus (Week 7+: Feb 4+)
-**Phase 7.7: Async-First Conversion** ✅ COMPLETE
-- ✅ Vector database integration (ChromaDB)
-- ✅ Embedding generation (OpenAI)
-- ✅ Semantic search
-- ✅ RAG pipeline with document indexing
-- ✅ Query pipeline with LLM generation
-- ✅ Example scripts demonstrating usage
+**Phase 7.8: Builder Pattern & Required Model** ✅ COMPLETE
+- ✅ ChatBuilder class with fluent configuration
+- ✅ Model parameter now required (no defaults)
+- ✅ All 9 chat modules updated
+- ✅ 28 builder tests + 13 async tests passing
+- ✅ Documentation updates (README, WARP.md, developer-journal)
 
 **Future Phases:**
 - 📝 Phase 8: Production Deployment

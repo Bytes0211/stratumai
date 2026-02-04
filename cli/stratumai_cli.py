@@ -861,44 +861,109 @@ def interactive(
                         provider = "openai"
         
         if not model:
-            # Show available models for provider
-            if provider in MODEL_CATALOG:
-                console.print(f"\n[bold cyan]Available models for {provider}:[/bold cyan]")
-                available_models = list(MODEL_CATALOG[provider].keys())
-                for i, m in enumerate(available_models, 1):
-                    model_info = MODEL_CATALOG[provider][m]
-                    is_reasoning = model_info.get("reasoning_model", False)
-                    label = f"  {i}. {m}"
-                    if is_reasoning:
-                        label += " [yellow](reasoning)[/yellow]"
-                    console.print(label)
+            # Validate and display curated models for all providers
+            from stratumai.utils.provider_validator import get_validated_interactive_models
             
-                # Retry loop for model selection
-                max_attempts = 3
-                model = None
-                for attempt in range(max_attempts):
-                    model_choice = Prompt.ask("\nSelect model")
-                    
-                    try:
-                        model_idx = int(model_choice) - 1
-                        if 0 <= model_idx < len(available_models):
-                            model = available_models[model_idx]
-                            break
-                        else:
-                            console.print(f"[red]✗ Invalid number.[/red] Please enter a number between 1 and {len(available_models)}")
-                            if attempt < max_attempts - 1:
-                                console.print("[dim]Try again...[/dim]")
-                    except ValueError:
-                        console.print(f"[red]✗ Invalid input.[/red] Please enter a number, not the model name (e.g., '2' not 'gpt-4o')")
+            # Show spinner while validating
+            with console.status(f"[cyan]Validating {provider} models...", spinner="dots"):
+                validation_data = get_validated_interactive_models(provider)
+            
+            validation_result = validation_data["validation_result"]
+            validated_models = validation_data["models"]
+            
+            # Show validation result
+            if validation_result["error"]:
+                console.print(f"[yellow]⚠ {validation_result['error']}[/yellow]")
+                console.print("[dim]Showing curated models (availability not confirmed)[/dim]")
+            else:
+                console.print(f"[green]✓ Validated {len(validated_models)} models[/green] [dim]({validation_result['validation_time_ms']}ms)[/dim]")
+                
+                # Show any unavailable models
+                if validation_result["invalid_models"]:
+                    invalid_display = []
+                    for inv_model in validation_result["invalid_models"]:
+                        # Get display name if available
+                        invalid_display.append(inv_model.split("/")[-1].split(":")[0])
+                    console.print(f"[yellow]⚠ Unavailable: {', '.join(invalid_display)}[/yellow]")
+            
+            # Build display list
+            console.print(f"\n[bold cyan]Available {provider} models:[/bold cyan]")
+            
+            # Get interactive models config for fallback
+            from stratumai.config import (
+                INTERACTIVE_OPENAI_MODELS, INTERACTIVE_ANTHROPIC_MODELS,
+                INTERACTIVE_GOOGLE_MODELS, INTERACTIVE_DEEPSEEK_MODELS,
+                INTERACTIVE_GROQ_MODELS, INTERACTIVE_GROK_MODELS,
+                INTERACTIVE_OPENROUTER_MODELS, INTERACTIVE_OLLAMA_MODELS,
+                INTERACTIVE_BEDROCK_MODELS,
+            )
+            
+            interactive_configs = {
+                "openai": INTERACTIVE_OPENAI_MODELS,
+                "anthropic": INTERACTIVE_ANTHROPIC_MODELS,
+                "google": INTERACTIVE_GOOGLE_MODELS,
+                "deepseek": INTERACTIVE_DEEPSEEK_MODELS,
+                "groq": INTERACTIVE_GROQ_MODELS,
+                "grok": INTERACTIVE_GROK_MODELS,
+                "openrouter": INTERACTIVE_OPENROUTER_MODELS,
+                "ollama": INTERACTIVE_OLLAMA_MODELS,
+                "bedrock": INTERACTIVE_BEDROCK_MODELS,
+            }
+            
+            fallback_config = interactive_configs.get(provider, {})
+            
+            # Use validated models, or fall back to interactive config
+            if validated_models:
+                available_models = list(validated_models.keys())
+                model_metadata = validated_models
+            elif fallback_config:
+                available_models = list(fallback_config.keys())
+                model_metadata = fallback_config
+            else:
+                console.print(f"[red]No models configured for provider: {provider}[/red]")
+                raise typer.Exit(1)
+            
+            # Display with friendly names and descriptions
+            current_category = None
+            for i, m in enumerate(available_models, 1):
+                meta = model_metadata.get(m, {})
+                display_name = meta.get("display_name", m)
+                description = meta.get("description", "")
+                category = meta.get("category", "")
+                
+                # Show category header if changed
+                if category and category != current_category:
+                    console.print(f"  [dim]── {category} ──[/dim]")
+                    current_category = category
+                
+                label = f"  {i}. {display_name}"
+                if description:
+                    label += f" [dim]- {description}[/dim]"
+                console.print(label)
+            
+            # Retry loop for model selection (shared by all providers)
+            max_attempts = 3
+            model = None
+            for attempt in range(max_attempts):
+                model_choice = Prompt.ask("\nSelect model")
+                
+                try:
+                    model_idx = int(model_choice) - 1
+                    if 0 <= model_idx < len(available_models):
+                        model = available_models[model_idx]
+                        break
+                    else:
+                        console.print(f"[red]✗ Invalid number.[/red] Please enter a number between 1 and {len(available_models)}")
                         if attempt < max_attempts - 1:
                             console.print("[dim]Try again...[/dim]")
-                
-                # If still no valid model after retries, exit
-                if model is None:
-                    console.print(f"[red]Too many invalid attempts. Exiting.[/red]")
-                    raise typer.Exit(1)
-            else:
-                console.print(f"[red]No models found for provider: {provider}[/red]")
+                except ValueError:
+                    console.print(f"[red]✗ Invalid input.[/red] Please enter a number, not the model name (e.g., '2' not 'gpt-4o')")
+                    if attempt < max_attempts - 1:
+                        console.print("[dim]Try again...[/dim]")
+            
+            # If still no valid model after retries, exit
+            if model is None:
+                console.print(f"[red]Too many invalid attempts. Exiting.[/red]")
                 raise typer.Exit(1)
         
         # Initialize client
@@ -1098,12 +1163,32 @@ def interactive(
                     console.print("[yellow]Provider not changed[/yellow]")
                     continue
                 
+                # Validate and display ALL models for the selected provider
+                from stratumai.utils.provider_validator import get_validated_interactive_models
+                
+                with console.status(f"[cyan]Validating {new_provider} models...", spinner="dots"):
+                    validation_data = get_validated_interactive_models(new_provider, all_models=True)
+                
+                validation_result = validation_data["validation_result"]
+                validated_models = validation_data["models"]
+                
+                # Show validation result
+                if validation_result["error"]:
+                    console.print(f"[yellow]⚠ {validation_result['error']}[/yellow]")
+                    console.print("[dim]Showing all models (availability not confirmed)[/dim]")
+                    # Fall back to MODEL_CATALOG if validation fails
+                    available_models = list(MODEL_CATALOG[new_provider].keys())
+                    model_metadata = MODEL_CATALOG[new_provider]
+                else:
+                    console.print(f"[green]✓ Validated {len(validated_models)} models[/green] [dim]({validation_result['validation_time_ms']}ms)[/dim]")
+                    available_models = list(validated_models.keys())
+                    model_metadata = validated_models
+                
                 # Show available models for new provider
-                console.print(f"\n[bold cyan]Available models for {new_provider}:[/bold cyan]")
-                available_models = list(MODEL_CATALOG[new_provider].keys())
+                console.print(f"\n[bold cyan]Current valid models for {new_provider}:[/bold cyan]")
                 for i, m in enumerate(available_models, 1):
-                    model_info = MODEL_CATALOG[new_provider][m]
-                    is_reasoning = model_info.get("reasoning_model", False)
+                    meta = model_metadata.get(m, {})
+                    is_reasoning = meta.get("reasoning_model", False)
                     current_marker = " [green](current)[/green]" if m == model and new_provider == provider else ""
                     label = f"  {i}. {m}{current_marker}"
                     if is_reasoning:

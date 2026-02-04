@@ -2,9 +2,9 @@
 
 # **StratumAI — Unified Intelligence Across Every Model Layer**
 
-**Status:** Phase 7.5 Complete  
+**Status:** Phase 7.8 Complete  
 **Providers:** 9 Fully Integrated  
-**Capabilities:** Routing • RAG • Caching • Streaming • CLI • Web UI • Large‑File Processing
+**Capabilities:** Routing • RAG • Caching • Streaming • CLI • Web UI • Builder Pattern • Async-First
 
 StratumAI is a production‑ready Python framework that unifies access to frontier LLM providers through a single, consistent API. It eliminates vendor lock‑in, simplifies multi‑model development, and provides intelligent routing, cost tracking, caching, streaming, and RAG capabilities for enterprise‑grade AI systems.
 
@@ -71,9 +71,12 @@ StratumAI is a multi‑provider LLM abstraction layer that allows developers to 
 - Automatic provider detection  
 
 ## **4.2 Reliability & Performance**
+- **Async-first architecture** with native SDK clients (AsyncOpenAI, AsyncAnthropic, aioboto3)
+- Sync wrappers (`chat_sync()`, `chat_completion_sync()`) for convenience
 - Retry logic with exponential backoff  
 - Fallback model chains  
-- Cost tracking and budget enforcement  
+- Cost tracking and budget enforcement
+- Latency tracking (milliseconds) on all responses
 - Streaming support for all providers  
 
 ## **4.3 Intelligence Layer**
@@ -177,21 +180,67 @@ stratumai check-keys
 stratumai chat -p openai -m gpt-4o-mini -t "Hello!"
 ```
 
-## **7.4 Python Example**
+## **7.4 Python Example (LLMClient)**
 
 ```python
 from stratumai import LLMClient
-from stratumai.models import Message
+from stratumai.models import Message, ChatRequest
 
 client = LLMClient()
-
-response = client.chat(
+request = ChatRequest(
     model="gpt-4o-mini",
     messages=[Message(role="user", content="Explain quantum computing")]
 )
 
+# Async (recommended)
+response = await client.chat_completion(request)
+
+# Sync wrapper for scripts/CLI
+response = client.chat_completion_sync(request)
+
 print(response.content)
-print(response.usage.cost_usd)
+print(f"Cost: ${response.usage.cost_usd:.6f}")
+print(f"Latency: {response.latency_ms:.0f}ms")
+```
+
+## **7.5 Chat Package (Simplified)**
+
+```python
+from stratumai.chat import anthropic, openai
+
+# Quick usage - model is always required
+response = await anthropic.chat("Hello!", model="claude-sonnet-4-5")
+print(response.content)
+
+# With options
+response = await openai.chat(
+    "Explain quantum computing",
+    model="gpt-4o-mini",
+    system="Be concise",
+    temperature=0.5
+)
+```
+
+## **7.6 Builder Pattern (Fluent Configuration)**
+
+```python
+from stratumai.chat import anthropic
+
+# Configure once, use multiple times
+client = (
+    anthropic
+    .with_model("claude-sonnet-4-5")
+    .with_system("You are a helpful assistant")
+    .with_temperature(0.7)
+)
+
+# All subsequent calls use the configured settings
+response = await client.chat("Hello!")
+response = await client.chat("Tell me more")
+
+# Stream with builder
+async for chunk in client.chat_stream("Write a story"):
+    print(chunk.content, end="", flush=True)
 ```
 
 ---
@@ -224,12 +273,18 @@ print(response.usage.cost_usd)
 
 ```
 stratumai/
-├── llm_abstraction/
-├── chat/
-├── cli/
-├── api/
-├── examples/
-└── docs/
+├── llm_abstraction/      # Core package
+│   ├── providers/        # Provider implementations (9 providers)
+│   ├── router.py         # Intelligent routing
+│   ├── models.py         # Data models
+│   └── utils/            # Utilities (token counting, extraction)
+├── chat/                 # Simplified chat modules
+│   ├── builder.py        # ChatBuilder class for fluent configuration
+│   └── stratumai_*.py    # Provider-specific modules (model required)
+├── cli/                  # Typer CLI
+├── api/                  # Optional FastAPI server
+├── examples/             # Usage examples
+└── docs/                 # Technical documentation
 ```
 
 ---
@@ -245,10 +300,23 @@ pytest -v
 
 # **12. Project Status**
 
-**Current Phase:** Phase 7.5 — RAG/Vector DB Integration  
-**Progress:** Phases 1–7.5 Complete  
+**Current Phase:** Phase 7.8 — Builder Pattern & Required Model  
+**Progress:** Phases 1–7.8 Complete  
 
-A detailed breakdown of all phases (1–7.5) is included in the full README and project documentation.
+### Completed Phases
+- **Phase 1-6:** Core implementation, providers, CLI, routing, caching
+- **Phase 7.1:** Large file handling with token estimation & chunking
+- **Phase 7.2:** Intelligent extraction (CSV, JSON, logs, code)
+- **Phase 7.3:** Model auto-selection for extraction tasks
+- **Phase 7.4:** Enhanced caching UI with analytics
+- **Phase 7.5:** RAG/Vector DB integration with ChromaDB
+- **Phase 7.6:** Chat package with simplified API
+- **Phase 7.7:** Async-first conversion with native SDK clients
+- **Phase 7.8:** Builder pattern & required model parameter
+
+**Test Coverage:** 300+ tests across all modules
+
+A detailed breakdown of all phases is included in the full README and project documentation.
 
 ---
 
