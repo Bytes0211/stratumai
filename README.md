@@ -562,7 +562,7 @@ print(tracker.get_summary())
 
 ## Examples
 
-The `examples/` directory contains 6 comprehensive real-world examples:
+The `examples/` directory contains 8 comprehensive real-world examples:
 
 1. **caching_examples.py** - Response caching and cost optimization with TTL
 2. **chatbot.py** - Interactive chatbot with conversation history and persistence
@@ -570,6 +570,8 @@ The `examples/` directory contains 6 comprehensive real-world examples:
 4. **document_summarizer.py** - Batch document summarization with progress tracking
 5. **performance_benchmark.py** - Performance benchmarking tool for latency/cost/memory
 6. **router_example.py** - Intelligent model routing demonstrations
+7. **rag_example.py** - RAG pipeline with vector database and semantic search
+8. **web_server.py** - FastAPI server with SSE/WebSocket streaming for frontend integration
 
 All examples are fully working and verified (✅ Feb 3, 2026):
 ```bash
@@ -579,6 +581,10 @@ python examples/code_reviewer.py mycode.py --compare
 python examples/document_summarizer.py docs/*.txt
 python examples/performance_benchmark.py --requests 5
 python examples/caching_examples.py
+python examples/rag_example.py
+
+# Web server with interactive demo
+uvicorn examples.web_server:app --reload --port 8000
 ```
 
 ## Documentation
@@ -588,6 +594,7 @@ python examples/caching_examples.py
 - **WARP.md** - Development environment guidance and project status
 - **docs/stratumai-technical-approach.md** - Comprehensive technical design (1,232 lines)
 - **docs/project-status.md** - Detailed implementation timeline
+- **docs/frontend-integration.md** - Guide for integrating StratumAI with web frontends (SSE/WebSocket)
 
 ## Testing
 
