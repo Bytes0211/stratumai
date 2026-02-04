@@ -1,6 +1,6 @@
 """Retry logic with exponential backoff and fallback support."""
 
-import time
+import asyncio
 import logging
 from typing import Callable, List, Optional, Type, Tuple
 from functools import wraps
@@ -34,7 +34,7 @@ def with_retry(
     fallback_provider: Optional[str] = None,
 ):
     """
-    Decorator to add retry logic with exponential backoff.
+    Decorator to add async retry logic with exponential backoff.
     
     Args:
         config: Retry configuration
@@ -43,7 +43,7 @@ def with_retry(
         
     Usage:
         @with_retry(config=RetryConfig(max_retries=5))
-        def my_llm_call():
+        async def my_llm_call():
             ...
     """
     if config is None:
@@ -51,12 +51,12 @@ def with_retry(
     
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        async def async_wrapper(*args, **kwargs):
             last_exception = None
             
             for attempt in range(config.max_retries + 1):
                 try:
-                    return func(*args, **kwargs)
+                    return await func(*args, **kwargs)
                 except config.retry_on_exceptions as e:
                     last_exception = e
                     
@@ -64,7 +64,7 @@ def with_retry(
                         # Try fallbacks if configured
                         if fallback_models or fallback_provider:
                             logging.info(f"Attempting fallback after {attempt + 1} retries")
-                            return _try_fallback(
+                            return await _try_fallback_async(
                                 func,
                                 args,
                                 kwargs,
@@ -91,16 +91,16 @@ def with_retry(
                         f"Retry attempt {attempt + 1}/{config.max_retries} "
                         f"after {delay:.2f}s delay. Error: {str(e)}"
                     )
-                    time.sleep(delay)
+                    await asyncio.sleep(delay)
             
             # Should never reach here, but just in case
             raise last_exception
         
-        return wrapper
+        return async_wrapper
     return decorator
 
 
-def _try_fallback(
+async def _try_fallback_async(
     func: Callable,
     args: tuple,
     kwargs: dict,
@@ -109,10 +109,10 @@ def _try_fallback(
     original_error: Exception,
 ):
     """
-    Try fallback models or providers.
+    Try fallback models or providers asynchronously.
     
     Args:
-        func: Original function
+        func: Original async function
         args: Function args
         kwargs: Function kwargs
         fallback_models: List of fallback model names
@@ -135,7 +135,7 @@ def _try_fallback(
                     kwargs['request'].model = model
                 elif 'model' in kwargs:
                     kwargs['model'] = model
-                return func(*args, **kwargs)
+                return await func(*args, **kwargs)
             except Exception as e:
                 logging.warning(f"Fallback model {model} failed: {str(e)}")
                 continue
@@ -146,7 +146,7 @@ def _try_fallback(
             logging.info(f"Trying fallback provider: {fallback_provider}")
             if 'provider' in kwargs:
                 kwargs['provider'] = fallback_provider
-            return func(*args, **kwargs)
+            return await func(*args, **kwargs)
         except Exception as e:
             logging.warning(f"Fallback provider {fallback_provider} failed: {str(e)}")
     

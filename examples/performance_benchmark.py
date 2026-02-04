@@ -31,9 +31,9 @@ load_dotenv()
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from llm_abstraction import LLMClient, Router, RoutingStrategy
-from llm_abstraction.models import Message
-from llm_abstraction.caching import ResponseCache, cache_response
+from stratumai import LLMClient, Router, RoutingStrategy
+from stratumai.models import Message
+from stratumai.caching import ResponseCache, cache_response
 
 console = Console()
 

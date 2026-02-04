@@ -180,8 +180,8 @@ stratumai chat -p openai -m gpt-4o-mini -t "Hello!"
 ## **7.4 Python Example**
 
 ```python
-from llm_abstraction import LLMClient
-from llm_abstraction.models import Message
+from stratumai import LLMClient
+from stratumai.models import Message
 
 client = LLMClient()
 

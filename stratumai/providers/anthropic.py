@@ -2,9 +2,9 @@
 
 import os
 from datetime import datetime
-from typing import Iterator, List, Optional
+from typing import AsyncIterator, List, Optional
 
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 
 from ..config import ANTHROPIC_MODELS, PROVIDER_CONSTRAINTS
 from ..exceptions import AuthenticationError, InvalidModelError, ProviderAPIError
@@ -37,9 +37,9 @@ class AnthropicProvider(BaseProvider):
         self._initialize_client()
     
     def _initialize_client(self) -> None:
-        """Initialize Anthropic client."""
+        """Initialize Anthropic async client."""
         try:
-            self._client = Anthropic(api_key=self.api_key)
+            self._client = AsyncAnthropic(api_key=self.api_key)
         except Exception as e:
             raise ProviderAPIError(
                 f"Failed to initialize Anthropic client: {str(e)}",
@@ -60,7 +60,7 @@ class AnthropicProvider(BaseProvider):
         model_info = ANTHROPIC_MODELS.get(model, {})
         return model_info.get("supports_caching", False)
     
-    def chat_completion(self, request: ChatRequest) -> ChatResponse:
+    async def chat_completion(self, request: ChatRequest) -> ChatResponse:
         """
         Execute chat completion request using Messages API.
         
@@ -134,7 +134,7 @@ class AnthropicProvider(BaseProvider):
         
         try:
             # Make API request
-            raw_response = self._client.messages.create(**anthropic_params)
+            raw_response = await self._client.messages.create(**anthropic_params)
             # Normalize and return
             return self._normalize_response(raw_response.model_dump())
         except Exception as e:
@@ -143,9 +143,9 @@ class AnthropicProvider(BaseProvider):
                 self.provider_name
             )
     
-    def chat_completion_stream(
+    async def chat_completion_stream(
         self, request: ChatRequest
-    ) -> Iterator[ChatResponse]:
+    ) -> AsyncIterator[ChatResponse]:
         """
         Execute streaming chat completion request.
         
@@ -192,8 +192,8 @@ class AnthropicProvider(BaseProvider):
             anthropic_params["system"] = system_message
         
         try:
-            with self._client.messages.stream(**anthropic_params) as stream:
-                for chunk in stream.text_stream:
+            async with self._client.messages.stream(**anthropic_params) as stream:
+                async for chunk in stream.text_stream:
                     yield self._normalize_stream_chunk(chunk)
         except Exception as e:
             raise ProviderAPIError(

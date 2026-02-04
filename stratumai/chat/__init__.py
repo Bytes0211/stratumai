@@ -4,7 +4,7 @@ This package provides convenient, provider-specific chat functions with
 sensible defaults for each supported LLM provider.
 
 Usage:
-    from chat import openai, anthropic, google
+    from stratumai.chat import openai, anthropic, google
     
     # Quick chat with defaults
     response = openai.chat("Hello, world!")
@@ -18,7 +18,7 @@ Usage:
     )
 """
 
-from chat import (
+from stratumai.chat import (
     stratumai_openai as openai,
     stratumai_anthropic as anthropic,
     stratumai_google as google,

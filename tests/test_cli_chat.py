@@ -7,7 +7,7 @@ from datetime import datetime
 from typer.testing import CliRunner
 
 from cli.stratumai_cli import app, _chat_impl
-from llm_abstraction.models import Message, ChatRequest, ChatResponse, Usage
+from stratumai.models import Message, ChatRequest, ChatResponse, Usage
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ def mock_client():
                 cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         yield mock, client_instance
 
@@ -131,9 +131,9 @@ class TestChatCommand:
                 messages=request.messages.copy(),
                 temperature=request.temperature
             ))
-            return mock_client[1].chat_completion.return_value
+            return mock_client[1].chat_completion_sync.return_value
         
-        mock_client[1].chat_completion.side_effect = capture_request
+        mock_client[1].chat_completion_sync.side_effect = capture_request
         
         # Patch MODEL_CATALOG to avoid interactive temperature prompt
         with patch('cli.stratumai_cli.MODEL_CATALOG', {'openai': {'gpt-4.1-mini': {'context': 128000}}}):
@@ -190,7 +190,7 @@ class TestChatImplSingleTurn:
                 cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         # User chooses to exit immediately (option 4)
         mock_prompt.return_value = "4"
@@ -209,7 +209,7 @@ class TestChatImplSingleTurn:
         )
         
         # Verify chat_completion was called once
-        assert client_instance.chat_completion.call_count == 1
+        assert client_instance.chat_completion_sync.call_count == 1
         
         # Verify exit message was printed
         mock_console.print.assert_any_call("[dim]Goodbye![/dim]")
@@ -243,7 +243,7 @@ class TestChatImplSingleTurn:
                 cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         # User chooses option 4 (Exit)
         mock_prompt.return_value = "4"
@@ -333,7 +333,7 @@ class TestChatImplMultiTurn:
             else:
                 return mock_response_2
         
-        client_instance.chat_completion.side_effect = capture_and_respond
+        client_instance.chat_completion_sync.side_effect = capture_and_respond
         
         # Mock prompts: first "1" (continue), then user input, then "4" (exit)
         mock_prompt.side_effect = ["1", "Second message", "4"]
@@ -352,7 +352,7 @@ class TestChatImplMultiTurn:
         )
         
         # Verify chat_completion was called twice
-        assert client_instance.chat_completion.call_count == 2
+        assert client_instance.chat_completion_sync.call_count == 2
         
         # Verify first call had only the first user message
         assert len(captured_requests) == 2
@@ -406,7 +406,7 @@ class TestChatImplSave:
                 cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         # Mock datetime
         mock_now = MagicMock()
@@ -518,7 +518,7 @@ class TestChatImplSave:
             else:
                 return mock_response_2
         
-        client_instance.chat_completion.side_effect = capture_and_respond
+        client_instance.chat_completion_sync.side_effect = capture_and_respond
         
         # Mock datetime
         mock_now = MagicMock()
@@ -548,7 +548,7 @@ class TestChatImplSave:
         mock_file.assert_called_once_with("saved.md", "w")
         
         # Verify chat_completion was called twice (once for initial, once for follow-up)
-        assert client_instance.chat_completion.call_count == 2
+        assert client_instance.chat_completion_sync.call_count == 2
         
         # Verify second call includes full conversation history
         # After first turn and save: [user: "First message", assistant: "First response"]
@@ -605,7 +605,7 @@ class TestChatImplSave:
             )
         )
         
-        client_instance.chat_completion.side_effect = [mock_response_1, mock_response_2, mock_response_3]
+        client_instance.chat_completion_sync.side_effect = [mock_response_1, mock_response_2, mock_response_3]
         
         # Mock datetime
         mock_now = MagicMock()
@@ -669,7 +669,7 @@ class TestChatImplSave:
                 cached_tokens=0, cache_creation_tokens=0, cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         # Mock datetime
         mock_now = MagicMock()
@@ -724,7 +724,7 @@ class TestChatImplFileInput:
                 cached_tokens=0, cache_creation_tokens=0, cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         mock_prompt.return_value = "4"  # Exit
         
@@ -746,7 +746,7 @@ class TestChatImplFileInput:
         mock_file.assert_any_call(test_file_path, 'r', encoding='utf-8')
         
         # Verify message content includes file content
-        call_args = client_instance.chat_completion.call_args
+        call_args = client_instance.chat_completion_sync.call_args
         request = call_args[0][0]
         assert "File content here" in request.messages[0].content
     
@@ -771,7 +771,7 @@ class TestChatImplFileInput:
                 cached_tokens=0, cache_creation_tokens=0, cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         mock_prompt.return_value = "4"  # Exit
         
@@ -790,7 +790,7 @@ class TestChatImplFileInput:
         )
         
         # Verify message content includes both
-        call_args = client_instance.chat_completion.call_args
+        call_args = client_instance.chat_completion_sync.call_args
         request = call_args[0][0]
         content = request.messages[0].content
         assert "Process this:" in content

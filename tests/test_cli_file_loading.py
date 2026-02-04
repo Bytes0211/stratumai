@@ -7,7 +7,7 @@ from datetime import datetime
 from typer.testing import CliRunner
 
 from cli.stratumai_cli import app
-from llm_abstraction.models import Message, ChatRequest, ChatResponse, Usage
+from stratumai.models import Message, ChatRequest, ChatResponse, Usage
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ def mock_client():
                 cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         yield mock, client_instance
 
@@ -105,7 +105,7 @@ class TestLoadFileContentSuccess:
                 cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         # Mock interactive mode to exit after file load
         mock_prompt.side_effect = ['exit']
@@ -165,7 +165,7 @@ class TestLoadFileContentSuccess:
                 cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         # Mock interactive mode to exit after file load
         mock_prompt.side_effect = ['exit']
@@ -314,7 +314,7 @@ class TestLoadFileContentSizeLimit:
                 cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         # User confirms to load large file, then exits
         mock_confirm.return_value = True
@@ -471,7 +471,7 @@ class TestInteractiveModeInitialFileLoad:
                 cache_read_tokens=0
             )
         )
-        client_instance.chat_completion.return_value = mock_response
+        client_instance.chat_completion_sync.return_value = mock_response
         
         # Mock interactive mode: send a message, then exit
         mock_prompt.side_effect = ['Hello with context', 'exit']
@@ -484,7 +484,7 @@ class TestInteractiveModeInitialFileLoad:
             captured_requests.append([Message(role=m.role, content=m.content) for m in request.messages])
             return mock_response
         
-        client_instance.chat_completion.side_effect = capture_request
+        client_instance.chat_completion_sync.side_effect = capture_request
         
         # Mock MODEL_CATALOG
         with patch('cli.stratumai_cli.MODEL_CATALOG', {

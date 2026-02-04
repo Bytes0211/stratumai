@@ -36,9 +36,9 @@ from pydantic import BaseModel, field_validator
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from llm_abstraction import LLMClient
-from llm_abstraction.models import Message, ChatRequest as LLMChatRequest
-from llm_abstraction.exceptions import (
+from stratumai import LLMClient
+from stratumai.models import Message, ChatRequest as LLMChatRequest
+from stratumai.exceptions import (
     RateLimitError,
     AuthenticationError,
     InvalidModelError,

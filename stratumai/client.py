@@ -1,7 +1,9 @@
 """Unified client for accessing multiple LLM providers."""
 
+import asyncio
+import time
 from enum import Enum
-from typing import Dict, Iterator, Optional, Type
+from typing import AsyncIterator, Dict, Optional, Type, Union
 
 from .config import MODEL_CATALOG
 from .exceptions import InvalidModelError, InvalidProviderError
@@ -118,7 +120,7 @@ class LLMClient:
             "any provider"
         )
     
-    def chat(
+    async def chat(
         self,
         model: str,
         messages: list[Message],
@@ -126,7 +128,7 @@ class LLMClient:
         max_tokens: Optional[int] = None,
         stream: bool = False,
         **kwargs
-    ) -> ChatResponse:
+    ) -> Union[ChatResponse, AsyncIterator[ChatResponse]]:
         """
         Execute a chat completion request.
         
@@ -139,7 +141,7 @@ class LLMClient:
             **kwargs: Additional provider-specific parameters
             
         Returns:
-            Chat completion response
+            Chat completion response, or AsyncIterator if streaming
             
         Raises:
             InvalidModelError: If model not supported
@@ -164,9 +166,9 @@ class LLMClient:
         if stream:
             return self._provider_instance.chat_completion_stream(request)
         else:
-            return self._provider_instance.chat_completion(request)
+            return await self._provider_instance.chat_completion(request)
     
-    def chat_completion(self, request: ChatRequest) -> ChatResponse:
+    async def chat_completion(self, request: ChatRequest) -> ChatResponse:
         """
         Execute a chat completion request using ChatRequest object.
         
@@ -185,11 +187,18 @@ class LLMClient:
             provider = self._detect_provider(request.model)
             self._initialize_provider(provider)
         
-        return self._provider_instance.chat_completion(request)
+        # Capture timing
+        start_time = time.perf_counter()
+        response = await self._provider_instance.chat_completion(request)
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        
+        # Add latency to response
+        response.latency_ms = latency_ms
+        return response
     
-    def chat_completion_stream(
+    async def chat_completion_stream(
         self, request: ChatRequest
-    ) -> Iterator[ChatResponse]:
+    ) -> AsyncIterator[ChatResponse]:
         """
         Execute a streaming chat completion request.
         
@@ -209,6 +218,48 @@ class LLMClient:
             self._initialize_provider(provider)
         
         return self._provider_instance.chat_completion_stream(request)
+    
+    def chat_sync(
+        self,
+        model: str,
+        messages: list[Message],
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        **kwargs
+    ) -> ChatResponse:
+        """
+        Synchronous wrapper for chat().
+        
+        Args:
+            model: Model name
+            messages: List of conversation messages
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            **kwargs: Additional provider-specific parameters
+            
+        Returns:
+            Chat completion response
+        """
+        return asyncio.run(self.chat(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=False,
+            **kwargs
+        ))
+    
+    def chat_completion_sync(self, request: ChatRequest) -> ChatResponse:
+        """
+        Synchronous wrapper for chat_completion().
+        
+        Args:
+            request: Unified chat request
+            
+        Returns:
+            Chat completion response
+        """
+        return asyncio.run(self.chat_completion(request))
     
     @classmethod
     def get_supported_providers(cls) -> list[str]:

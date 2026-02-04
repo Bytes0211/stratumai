@@ -186,7 +186,7 @@ Instead of sending entire files to the AI (which costs tokens), RAG:
 ### Using RAG with Python
 
 ```python
-from llm_abstraction import RAGClient
+from stratumai import RAGClient
 
 # Initialize RAG
 rag = RAGClient()
@@ -280,7 +280,7 @@ python -m cli.stratumai_cli interactive
 For very large document sets, use the Python API with RAG:
 
 ```python
-from llm_abstraction import RAGClient
+from stratumai import RAGClient
 
 # Initialize
 rag = RAGClient()

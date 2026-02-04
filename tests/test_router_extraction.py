@@ -1,8 +1,8 @@
 """Unit tests for Router extraction routing functionality."""
 
 import pytest
-from llm_abstraction.router import Router, RoutingStrategy
-from llm_abstraction.utils.file_analyzer import FileType
+from stratumai.router import Router, RoutingStrategy
+from stratumai.utils.file_analyzer import FileType
 
 
 class TestRouterExtraction:

@@ -1,18 +1,19 @@
-"""Grok (X.AI) chat interface for StratumAI.
+"""OpenAI chat interface for StratumAI.
 
-Provides convenient functions for Grok chat completions with sensible defaults.
+Provides convenient functions for OpenAI chat completions with sensible defaults.
 
-Default Model: grok-beta
-Environment Variable: GROK_API_KEY
+Default Model: gpt-4o-mini
+Environment Variable: OPENAI_API_KEY
 """
 
-from typing import Iterator, Optional, Union
+import asyncio
+from typing import AsyncIterator, Optional, Union
 
-from llm_abstraction import LLMClient
-from llm_abstraction.models import ChatResponse, Message
+from stratumai import LLMClient
+from stratumai.models import ChatResponse, Message
 
 # Default configuration
-DEFAULT_MODEL = "grok-beta"
+DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_MAX_TOKENS = None
 
@@ -24,11 +25,11 @@ def _get_client() -> LLMClient:
     """Get or create the module-level client."""
     global _client
     if _client is None:
-        _client = LLMClient(provider="grok")
+        _client = LLMClient(provider="openai")
     return _client
 
 
-def chat(
+async def chat(
     prompt: Union[str, list[Message]],
     *,
     model: str = DEFAULT_MODEL,
@@ -37,13 +38,13 @@ def chat(
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS,
     stream: bool = False,
     **kwargs,
-) -> Union[ChatResponse, Iterator[ChatResponse]]:
+) -> Union[ChatResponse, AsyncIterator[ChatResponse]]:
     """
-    Send a chat completion request to Grok (X.AI).
+    Send an async chat completion request to OpenAI.
 
     Args:
         prompt: User message string or list of Message objects.
-        model: Model name. Default: grok-beta
+        model: Model name. Default: gpt-4o-mini
         system: Optional system prompt (ignored if prompt is list of Messages).
         temperature: Sampling temperature (0.0-2.0). Default: 0.7
         max_tokens: Maximum tokens to generate. Default: None (model default)
@@ -51,11 +52,11 @@ def chat(
         **kwargs: Additional parameters passed to the API.
 
     Returns:
-        ChatResponse object, or Iterator[ChatResponse] if streaming.
+        ChatResponse object, or AsyncIterator[ChatResponse] if streaming.
 
     Example:
-        >>> from chat import grok
-        >>> response = grok.chat("What is Python?")
+        >>> from stratumai.chat import openai
+        >>> response = await openai.chat("What is Python?")
         >>> print(response.content)
     """
     client = _get_client()
@@ -69,7 +70,7 @@ def chat(
     else:
         messages = prompt
 
-    return client.chat(
+    return await client.chat(
         model=model,
         messages=messages,
         temperature=temperature,
@@ -79,7 +80,7 @@ def chat(
     )
 
 
-def chat_stream(
+async def chat_stream(
     prompt: Union[str, list[Message]],
     *,
     model: str = DEFAULT_MODEL,
@@ -87,13 +88,13 @@ def chat_stream(
     temperature: float = DEFAULT_TEMPERATURE,
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS,
     **kwargs,
-) -> Iterator[ChatResponse]:
+) -> AsyncIterator[ChatResponse]:
     """
-    Send a streaming chat completion request to Grok (X.AI).
+    Send an async streaming chat completion request to OpenAI.
 
     Args:
         prompt: User message string or list of Message objects.
-        model: Model name. Default: grok-beta
+        model: Model name. Default: gpt-4o-mini
         system: Optional system prompt (ignored if prompt is list of Messages).
         temperature: Sampling temperature (0.0-2.0). Default: 0.7
         max_tokens: Maximum tokens to generate. Default: None (model default)
@@ -103,11 +104,11 @@ def chat_stream(
         ChatResponse chunks.
 
     Example:
-        >>> from chat import grok
-        >>> for chunk in grok.chat_stream("Tell me a story"):
+        >>> from stratumai.chat import openai
+        >>> async for chunk in openai.chat_stream("Tell me a story"):
         ...     print(chunk.content, end="", flush=True)
     """
-    return chat(
+    return await chat(
         prompt,
         model=model,
         system=system,
@@ -116,3 +117,38 @@ def chat_stream(
         stream=True,
         **kwargs,
     )
+
+
+def chat_sync(
+    prompt: Union[str, list[Message]],
+    *,
+    model: str = DEFAULT_MODEL,
+    system: Optional[str] = None,
+    temperature: float = DEFAULT_TEMPERATURE,
+    max_tokens: Optional[int] = DEFAULT_MAX_TOKENS,
+    **kwargs,
+) -> ChatResponse:
+    """Synchronous wrapper for chat()."""
+    return asyncio.run(chat(
+        prompt,
+        model=model,
+        system=system,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=False,
+        **kwargs,
+    ))
+
+
+if __name__ == "__main__":
+    # Demo usage when run directly
+    print(f"OpenAI Chat Module - Default model: {DEFAULT_MODEL}")
+    print("\nSending test prompt...\n")
+    
+    response = chat_sync("Hello! Please respond with a brief greeting.")
+    
+    print(f"Response: {response.content}")
+    print(f"\nModel: {response.model}")
+    print(f"Tokens: {response.total_tokens} (prompt: {response.prompt_tokens}, completion: {response.completion_tokens})")
+    print(f"Cost: ${response.cost:.6f}")
+    print(f"Latency: {response.latency_ms:.0f}ms")

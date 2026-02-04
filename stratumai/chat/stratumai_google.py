@@ -1,18 +1,19 @@
-"""OpenAI chat interface for StratumAI.
+"""Google Gemini chat interface for StratumAI.
 
-Provides convenient functions for OpenAI chat completions with sensible defaults.
+Provides convenient functions for Google Gemini chat completions with sensible defaults.
 
-Default Model: gpt-4o-mini
-Environment Variable: OPENAI_API_KEY
+Default Model: gemini-2.5-flash
+Environment Variable: GOOGLE_API_KEY
 """
 
-from typing import Iterator, Optional, Union
+import asyncio
+from typing import AsyncIterator, Optional, Union
 
-from llm_abstraction import LLMClient
-from llm_abstraction.models import ChatResponse, Message
+from stratumai import LLMClient
+from stratumai.models import ChatResponse, Message
 
 # Default configuration
-DEFAULT_MODEL = "gpt-4o-mini"
+DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_MAX_TOKENS = None
 
@@ -24,11 +25,11 @@ def _get_client() -> LLMClient:
     """Get or create the module-level client."""
     global _client
     if _client is None:
-        _client = LLMClient(provider="openai")
+        _client = LLMClient(provider="google")
     return _client
 
 
-def chat(
+async def chat(
     prompt: Union[str, list[Message]],
     *,
     model: str = DEFAULT_MODEL,
@@ -37,13 +38,13 @@ def chat(
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS,
     stream: bool = False,
     **kwargs,
-) -> Union[ChatResponse, Iterator[ChatResponse]]:
+) -> Union[ChatResponse, AsyncIterator[ChatResponse]]:
     """
-    Send a chat completion request to OpenAI.
+    Send a chat completion request to Google Gemini.
 
     Args:
         prompt: User message string or list of Message objects.
-        model: Model name. Default: gpt-4o-mini
+        model: Model name. Default: gemini-2.5-flash
         system: Optional system prompt (ignored if prompt is list of Messages).
         temperature: Sampling temperature (0.0-2.0). Default: 0.7
         max_tokens: Maximum tokens to generate. Default: None (model default)
@@ -51,11 +52,11 @@ def chat(
         **kwargs: Additional parameters passed to the API.
 
     Returns:
-        ChatResponse object, or Iterator[ChatResponse] if streaming.
+        ChatResponse object, or AsyncIterator[ChatResponse] if streaming.
 
     Example:
-        >>> from chat import openai
-        >>> response = openai.chat("What is Python?")
+        >>> from stratumai.chat import google
+        >>> response = google.chat("What is Python?")
         >>> print(response.content)
     """
     client = _get_client()
@@ -69,7 +70,7 @@ def chat(
     else:
         messages = prompt
 
-    return client.chat(
+    return await client.chat(
         model=model,
         messages=messages,
         temperature=temperature,
@@ -79,7 +80,7 @@ def chat(
     )
 
 
-def chat_stream(
+async def chat_stream(
     prompt: Union[str, list[Message]],
     *,
     model: str = DEFAULT_MODEL,
@@ -87,13 +88,13 @@ def chat_stream(
     temperature: float = DEFAULT_TEMPERATURE,
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS,
     **kwargs,
-) -> Iterator[ChatResponse]:
+) -> AsyncIterator[ChatResponse]:
     """
-    Send a streaming chat completion request to OpenAI.
+    Send a streaming chat completion request to Google Gemini.
 
     Args:
         prompt: User message string or list of Message objects.
-        model: Model name. Default: gpt-4o-mini
+        model: Model name. Default: gemini-2.5-flash
         system: Optional system prompt (ignored if prompt is list of Messages).
         temperature: Sampling temperature (0.0-2.0). Default: 0.7
         max_tokens: Maximum tokens to generate. Default: None (model default)
@@ -103,11 +104,11 @@ def chat_stream(
         ChatResponse chunks.
 
     Example:
-        >>> from chat import openai
-        >>> for chunk in openai.chat_stream("Tell me a story"):
+        >>> from stratumai.chat import google
+        >>> for chunk in google.chat_stream("Tell me a story"):
         ...     print(chunk.content, end="", flush=True)
     """
-    return chat(
+    return await chat(
         prompt,
         model=model,
         system=system,
@@ -116,3 +117,24 @@ def chat_stream(
         stream=True,
         **kwargs,
     )
+
+
+def chat_sync(
+    prompt,
+    *,
+    model=DEFAULT_MODEL,
+    system=None,
+    temperature=DEFAULT_TEMPERATURE,
+    max_tokens=DEFAULT_MAX_TOKENS,
+    **kwargs,
+):
+    """Synchronous wrapper for chat()."""
+    return asyncio.run(chat(
+        prompt,
+        model=model,
+        system=system,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=False,
+        **kwargs,
+    ))

@@ -56,3 +56,4 @@ class ChatResponse:
     provider: str
     created_at: datetime
     raw_response: dict  # Original provider response for debugging
+    latency_ms: Optional[float] = None  # Response latency in milliseconds

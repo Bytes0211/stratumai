@@ -265,7 +265,7 @@ def generate_cache_key(model: str, messages: List[Message], **kwargs) -> str:
 ### 1. Use Caching Aggressively
 
 ```python
-from llm_abstraction.caching import cache_response
+from stratumai.caching import cache_response
 
 @cache_response(ttl=3600)  # Cache for 1 hour
 def ask_llm(question: str) -> str:
@@ -298,7 +298,7 @@ for chunk in client.chat_stream(model="gpt-4o-mini", messages=[...]):
 ### 3. Use Router for Cost Optimization
 
 ```python
-from llm_abstraction import Router, RoutingStrategy
+from stratumai import Router, RoutingStrategy
 
 router = Router(client, default_strategy=RoutingStrategy.COST)
 
@@ -341,7 +341,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
 ### 5. Use Prompt Caching for Long Contexts
 
 ```python
-from llm_abstraction.models import Message
+from stratumai.models import Message
 
 long_document = "..." * 50000  # 50K tokens
 
@@ -469,7 +469,7 @@ stats.print_stats(20)  # Show top 20 functions
 ### Example Monitoring Code
 
 ```python
-from llm_abstraction import LLMClient, CostTracker
+from stratumai import LLMClient, CostTracker
 import time
 
 client = LLMClient()

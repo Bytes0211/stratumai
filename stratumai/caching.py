@@ -203,26 +203,26 @@ def cache_response(
     cache_instance: Optional[ResponseCache] = None
 ):
     """
-    Decorator to cache LLM responses.
+    Decorator to cache async LLM responses.
     
     Args:
         ttl: Time-to-live for cache entries in seconds
         cache_instance: Optional cache instance (uses global cache if None)
         
     Returns:
-        Decorated function
+        Decorated async function
         
     Example:
         @cache_response(ttl=3600)
-        def chat(self, request: ChatRequest) -> ChatResponse:
-            return self.provider.chat_completion(request)
+        async def chat(self, request: ChatRequest) -> ChatResponse:
+            return await self.provider.chat_completion(request)
     """
     cache = cache_instance or _global_cache
     cache.ttl = ttl
     
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs) -> ChatResponse:
+        async def async_wrapper(*args, **kwargs) -> ChatResponse:
             # Extract request parameters
             # Handle both ChatRequest object and individual parameters
             if args and hasattr(args[0], "model"):
@@ -241,8 +241,8 @@ def cache_response(
             if cached_response is not None:
                 return cached_response
             
-            # Execute function
-            response = func(*args, **kwargs)
+            # Execute async function
+            response = await func(*args, **kwargs)
             
             # Cache response (only if not streaming)
             if not kwargs.get("stream", False):
@@ -250,7 +250,7 @@ def cache_response(
             
             return response
         
-        return wrapper
+        return async_wrapper
     return decorator
 
 

@@ -1,18 +1,20 @@
-"""DeepSeek chat interface for StratumAI.
+"""Groq chat interface for StratumAI.
 
-Provides convenient functions for DeepSeek chat completions with sensible defaults.
+Provides convenient functions for Groq chat completions with sensible defaults.
+Groq provides ultra-fast inference for open-source models.
 
-Default Model: deepseek-chat
-Environment Variable: DEEPSEEK_API_KEY
+Default Model: llama-3.3-70b-versatile
+Environment Variable: GROQ_API_KEY
 """
 
-from typing import Iterator, Optional, Union
+import asyncio
+from typing import AsyncIterator, Optional, Union
 
-from llm_abstraction import LLMClient
-from llm_abstraction.models import ChatResponse, Message
+from stratumai import LLMClient
+from stratumai.models import ChatResponse, Message
 
 # Default configuration
-DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_MAX_TOKENS = None
 
@@ -24,11 +26,11 @@ def _get_client() -> LLMClient:
     """Get or create the module-level client."""
     global _client
     if _client is None:
-        _client = LLMClient(provider="deepseek")
+        _client = LLMClient(provider="groq")
     return _client
 
 
-def chat(
+async def chat(
     prompt: Union[str, list[Message]],
     *,
     model: str = DEFAULT_MODEL,
@@ -37,13 +39,13 @@ def chat(
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS,
     stream: bool = False,
     **kwargs,
-) -> Union[ChatResponse, Iterator[ChatResponse]]:
+) -> Union[ChatResponse, AsyncIterator[ChatResponse]]:
     """
-    Send a chat completion request to DeepSeek.
+    Send a chat completion request to Groq.
 
     Args:
         prompt: User message string or list of Message objects.
-        model: Model name. Default: deepseek-chat
+        model: Model name. Default: llama-3.3-70b-versatile
         system: Optional system prompt (ignored if prompt is list of Messages).
         temperature: Sampling temperature (0.0-2.0). Default: 0.7
         max_tokens: Maximum tokens to generate. Default: None (model default)
@@ -51,11 +53,11 @@ def chat(
         **kwargs: Additional parameters passed to the API.
 
     Returns:
-        ChatResponse object, or Iterator[ChatResponse] if streaming.
+        ChatResponse object, or AsyncIterator[ChatResponse] if streaming.
 
     Example:
-        >>> from chat import deepseek
-        >>> response = deepseek.chat("What is Python?")
+        >>> from stratumai.chat import groq
+        >>> response = groq.chat("What is Python?")
         >>> print(response.content)
     """
     client = _get_client()
@@ -69,7 +71,7 @@ def chat(
     else:
         messages = prompt
 
-    return client.chat(
+    return await client.chat(
         model=model,
         messages=messages,
         temperature=temperature,
@@ -79,7 +81,7 @@ def chat(
     )
 
 
-def chat_stream(
+async def chat_stream(
     prompt: Union[str, list[Message]],
     *,
     model: str = DEFAULT_MODEL,
@@ -87,13 +89,13 @@ def chat_stream(
     temperature: float = DEFAULT_TEMPERATURE,
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS,
     **kwargs,
-) -> Iterator[ChatResponse]:
+) -> AsyncIterator[ChatResponse]:
     """
-    Send a streaming chat completion request to DeepSeek.
+    Send a streaming chat completion request to Groq.
 
     Args:
         prompt: User message string or list of Message objects.
-        model: Model name. Default: deepseek-chat
+        model: Model name. Default: llama-3.3-70b-versatile
         system: Optional system prompt (ignored if prompt is list of Messages).
         temperature: Sampling temperature (0.0-2.0). Default: 0.7
         max_tokens: Maximum tokens to generate. Default: None (model default)
@@ -103,11 +105,11 @@ def chat_stream(
         ChatResponse chunks.
 
     Example:
-        >>> from chat import deepseek
-        >>> for chunk in deepseek.chat_stream("Tell me a story"):
+        >>> from stratumai.chat import groq
+        >>> for chunk in groq.chat_stream("Tell me a story"):
         ...     print(chunk.content, end="", flush=True)
     """
-    return chat(
+    return await chat(
         prompt,
         model=model,
         system=system,
@@ -116,3 +118,24 @@ def chat_stream(
         stream=True,
         **kwargs,
     )
+
+
+def chat_sync(
+    prompt,
+    *,
+    model=DEFAULT_MODEL,
+    system=None,
+    temperature=DEFAULT_TEMPERATURE,
+    max_tokens=DEFAULT_MAX_TOKENS,
+    **kwargs,
+):
+    """Synchronous wrapper for chat()."""
+    return asyncio.run(chat(
+        prompt,
+        model=model,
+        system=system,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=False,
+        **kwargs,
+    ))

@@ -2,8 +2,8 @@
 
 import pytest
 import time
-from llm_abstraction.caching import ResponseCache, CacheEntry, get_cache_stats, get_cache_entries, clear_cache
-from llm_abstraction.models import ChatResponse, Usage
+from stratumai.caching import ResponseCache, CacheEntry, get_cache_stats, get_cache_entries, clear_cache
+from stratumai.models import ChatResponse, Usage
 from datetime import datetime
 
 

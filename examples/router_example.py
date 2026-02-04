@@ -9,7 +9,7 @@ load_dotenv()
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from llm_abstraction import LLMClient, Message, ChatRequest, Router, RoutingStrategy
+from stratumai import LLMClient, Message, ChatRequest, Router, RoutingStrategy
 
 
 def basic_routing_example():

@@ -1,7 +1,8 @@
 """Abstract base class for LLM providers."""
 
+import asyncio
 from abc import ABC, abstractmethod
-from typing import Iterator, List, Optional
+from typing import AsyncIterator, List, Optional
 
 from ..models import ChatRequest, ChatResponse, Usage
 from ..exceptions import ValidationError
@@ -28,7 +29,7 @@ class BaseProvider(ABC):
         pass
     
     @abstractmethod
-    def chat_completion(self, request: ChatRequest) -> ChatResponse:
+    async def chat_completion(self, request: ChatRequest) -> ChatResponse:
         """
         Execute a chat completion request.
         
@@ -45,9 +46,9 @@ class BaseProvider(ABC):
         pass
     
     @abstractmethod
-    def chat_completion_stream(
+    async def chat_completion_stream(
         self, request: ChatRequest
-    ) -> Iterator[ChatResponse]:
+    ) -> AsyncIterator[ChatResponse]:
         """
         Execute a streaming chat completion request.
         
@@ -62,6 +63,18 @@ class BaseProvider(ABC):
             ProviderAPIError: If API call fails
         """
         pass
+    
+    def chat_completion_sync(self, request: ChatRequest) -> ChatResponse:
+        """
+        Synchronous wrapper for chat_completion.
+        
+        Args:
+            request: Unified chat request
+            
+        Returns:
+            Unified chat response
+        """
+        return asyncio.run(self.chat_completion(request))
     
     @abstractmethod
     def _normalize_response(self, raw_response: dict) -> ChatResponse:

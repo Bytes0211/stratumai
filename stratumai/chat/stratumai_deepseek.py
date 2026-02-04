@@ -1,19 +1,19 @@
-"""Ollama chat interface for StratumAI.
+"""DeepSeek chat interface for StratumAI.
 
-Provides convenient functions for Ollama local model chat completions.
-Ollama runs models locally - no API key required.
+Provides convenient functions for DeepSeek chat completions with sensible defaults.
 
-Default Model: llama3.2
-Requires: Ollama running locally (default: http://localhost:11434)
+Default Model: deepseek-chat
+Environment Variable: DEEPSEEK_API_KEY
 """
 
-from typing import Iterator, Optional, Union
+import asyncio
+from typing import AsyncIterator, Optional, Union
 
-from llm_abstraction import LLMClient
-from llm_abstraction.models import ChatResponse, Message
+from stratumai import LLMClient
+from stratumai.models import ChatResponse, Message
 
 # Default configuration
-DEFAULT_MODEL = "llama3.2"
+DEFAULT_MODEL = "deepseek-chat"
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_MAX_TOKENS = None
 
@@ -25,11 +25,11 @@ def _get_client() -> LLMClient:
     """Get or create the module-level client."""
     global _client
     if _client is None:
-        _client = LLMClient(provider="ollama")
+        _client = LLMClient(provider="deepseek")
     return _client
 
 
-def chat(
+async def chat(
     prompt: Union[str, list[Message]],
     *,
     model: str = DEFAULT_MODEL,
@@ -38,13 +38,13 @@ def chat(
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS,
     stream: bool = False,
     **kwargs,
-) -> Union[ChatResponse, Iterator[ChatResponse]]:
+) -> Union[ChatResponse, AsyncIterator[ChatResponse]]:
     """
-    Send a chat completion request to Ollama (local).
+    Send a chat completion request to DeepSeek.
 
     Args:
         prompt: User message string or list of Message objects.
-        model: Model name. Default: llama3.2
+        model: Model name. Default: deepseek-chat
         system: Optional system prompt (ignored if prompt is list of Messages).
         temperature: Sampling temperature (0.0-2.0). Default: 0.7
         max_tokens: Maximum tokens to generate. Default: None (model default)
@@ -52,18 +52,12 @@ def chat(
         **kwargs: Additional parameters passed to the API.
 
     Returns:
-        ChatResponse object, or Iterator[ChatResponse] if streaming.
-
-    Raises:
-        ProviderAPIError: If Ollama is not running or model not found.
+        ChatResponse object, or AsyncIterator[ChatResponse] if streaming.
 
     Example:
-        >>> from chat import ollama
-        >>> response = ollama.chat("What is Python?")
+        >>> from stratumai.chat import deepseek
+        >>> response = deepseek.chat("What is Python?")
         >>> print(response.content)
-
-        # Use a different model (must be pulled first)
-        >>> response = ollama.chat("Explain AI", model="mistral")
     """
     client = _get_client()
 
@@ -76,7 +70,7 @@ def chat(
     else:
         messages = prompt
 
-    return client.chat(
+    return await client.chat(
         model=model,
         messages=messages,
         temperature=temperature,
@@ -86,7 +80,7 @@ def chat(
     )
 
 
-def chat_stream(
+async def chat_stream(
     prompt: Union[str, list[Message]],
     *,
     model: str = DEFAULT_MODEL,
@@ -94,13 +88,13 @@ def chat_stream(
     temperature: float = DEFAULT_TEMPERATURE,
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS,
     **kwargs,
-) -> Iterator[ChatResponse]:
+) -> AsyncIterator[ChatResponse]:
     """
-    Send a streaming chat completion request to Ollama (local).
+    Send a streaming chat completion request to DeepSeek.
 
     Args:
         prompt: User message string or list of Message objects.
-        model: Model name. Default: llama3.2
+        model: Model name. Default: deepseek-chat
         system: Optional system prompt (ignored if prompt is list of Messages).
         temperature: Sampling temperature (0.0-2.0). Default: 0.7
         max_tokens: Maximum tokens to generate. Default: None (model default)
@@ -110,11 +104,11 @@ def chat_stream(
         ChatResponse chunks.
 
     Example:
-        >>> from chat import ollama
-        >>> for chunk in ollama.chat_stream("Tell me a story"):
+        >>> from stratumai.chat import deepseek
+        >>> for chunk in deepseek.chat_stream("Tell me a story"):
         ...     print(chunk.content, end="", flush=True)
     """
-    return chat(
+    return await chat(
         prompt,
         model=model,
         system=system,
@@ -123,3 +117,24 @@ def chat_stream(
         stream=True,
         **kwargs,
     )
+
+
+def chat_sync(
+    prompt,
+    *,
+    model=DEFAULT_MODEL,
+    system=None,
+    temperature=DEFAULT_TEMPERATURE,
+    max_tokens=DEFAULT_MAX_TOKENS,
+    **kwargs,
+):
+    """Synchronous wrapper for chat()."""
+    return asyncio.run(chat(
+        prompt,
+        model=model,
+        system=system,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=False,
+        **kwargs,
+    ))

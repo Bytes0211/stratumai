@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from llm_abstraction.models import ChatRequest, ChatResponse, Message, Usage
+from stratumai.models import ChatRequest, ChatResponse, Message, Usage
 
 
 class TestMessage:

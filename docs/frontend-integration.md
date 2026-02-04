@@ -55,8 +55,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
 
-from llm_abstraction import LLMClient
-from llm_abstraction.models import Message
+from stratumai import LLMClient
+from stratumai.models import Message
 
 app = FastAPI()
 
@@ -153,8 +153,8 @@ async def chat(request: ChatRequest):
 from flask import Flask, request, Response
 import json
 
-from llm_abstraction import LLMClient
-from llm_abstraction.models import Message
+from stratumai import LLMClient
+from stratumai.models import Message
 
 app = Flask(__name__)
 client = LLMClient()
@@ -196,8 +196,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import json
 import asyncio
 
-from llm_abstraction import LLMClient
-from llm_abstraction.models import Message
+from stratumai import LLMClient
+from stratumai.models import Message
 
 app = FastAPI()
 client = LLMClient()
@@ -482,7 +482,7 @@ For long-running operations, emit progress updates:
 ### Server-Side
 
 ```python
-from llm_abstraction.exceptions import (
+from stratumai.exceptions import (
     RateLimitError,
     AuthenticationError,
     InvalidModelError,

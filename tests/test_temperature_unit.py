@@ -2,10 +2,10 @@
 """Unit test for temperature validation (no API keys required)."""
 
 import os
-from llm_abstraction.providers.anthropic import AnthropicProvider
-from llm_abstraction.providers.openai import OpenAIProvider
-from llm_abstraction.exceptions import ValidationError
-from llm_abstraction.models import Message, ChatRequest
+from stratumai.providers.anthropic import AnthropicProvider
+from stratumai.providers.openai import OpenAIProvider
+from stratumai.exceptions import ValidationError
+from stratumai.models import Message, ChatRequest
 
 def test_anthropic_temperature_validation():
     """Test that Anthropic validates temperature 0.0 to 1.0."""

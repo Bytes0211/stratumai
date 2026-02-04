@@ -32,9 +32,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Load environment variables
 load_dotenv()
 
-from llm_abstraction import LLMClient, CostTracker
-from llm_abstraction.models import Message
-from llm_abstraction.exceptions import LLMAbstractionError
+from stratumai import LLMClient, CostTracker
+from stratumai.models import Message
+from stratumai.exceptions import LLMAbstractionError
 
 console = Console()
 

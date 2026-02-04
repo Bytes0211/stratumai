@@ -30,7 +30,7 @@ def main():
     """Entry point for the example."""
     
     # Import StratumAI config
-    from llm_abstraction.config import BEDROCK_MODELS
+    from stratumai.config import BEDROCK_MODELS
     
     aws_region = "us-east-1"
     

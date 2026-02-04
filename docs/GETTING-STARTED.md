@@ -83,7 +83,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 ### Your First Request (Python)
 
 ```python
-from llm_abstraction import LLMClient
+from stratumai import LLMClient
 
 # Initialize client (reads API keys from environment)
 client = LLMClient()
@@ -125,7 +125,7 @@ python -m cli.stratumai_cli chat "Explain AI in one sentence"
 ### Sending Messages
 
 ```python
-from llm_abstraction import LLMClient
+from stratumai import LLMClient
 
 client = LLMClient()
 
@@ -289,7 +289,7 @@ Monitor and control your LLM spending.
 ### Basic Cost Tracking
 
 ```python
-from llm_abstraction import LLMClient, CostTracker
+from stratumai import LLMClient, CostTracker
 
 client = LLMClient()
 tracker = CostTracker(budget_limit=5.0)  # $5 budget
@@ -344,7 +344,7 @@ Let StratumAI select the best model for your task.
 ### Basic Routing
 
 ```python
-from llm_abstraction import Router, RoutingStrategy
+from stratumai import Router, RoutingStrategy
 
 # Initialize router
 router = Router(client, default_strategy=RoutingStrategy.HYBRID)
@@ -431,7 +431,7 @@ Save costs and latency with response and prompt caching.
 Cache identical requests to avoid duplicate API calls.
 
 ```python
-from llm_abstraction.caching import cache_response
+from stratumai.caching import cache_response
 
 # Decorator automatically caches responses
 @cache_response(ttl=3600)  # Cache for 1 hour
@@ -458,7 +458,7 @@ print(f"Same answer: {answer1 == answer2}")  # True
 Cache long context that you reuse (Anthropic, OpenAI, Google).
 
 ```python
-from llm_abstraction.models import Message
+from stratumai.models import Message
 
 # Load a long document once
 long_document = open("large_file.txt").read()  # 50,000 tokens
@@ -588,7 +588,7 @@ See [cli-usage.md](cli-usage.md) for complete CLI documentation.
 
 1. **Retry Logic**: Automatic fallback to alternative models
    ```python
-   from llm_abstraction.retry import with_retry, RetryConfig
+   from stratumai.retry import with_retry, RetryConfig
    
    @with_retry(RetryConfig(fallback_models=["gpt-4.1", "gpt-4o-mini"]))
    def robust_chat(messages):
@@ -602,7 +602,7 @@ See [cli-usage.md](cli-usage.md) for complete CLI documentation.
 
 3. **Logging**: Track all LLM calls
    ```python
-   from llm_abstraction.utils import log_llm_call
+   from stratumai.utils import log_llm_call
    
    @log_llm_call
    def my_function():
@@ -614,7 +614,7 @@ See [cli-usage.md](cli-usage.md) for complete CLI documentation.
 **Idea:** Build a code review assistant
 
 ```python
-from llm_abstraction import LLMClient, Router, RoutingStrategy
+from stratumai import LLMClient, Router, RoutingStrategy
 
 client = LLMClient()
 router = Router(client)
@@ -692,7 +692,7 @@ for question in questions:
 ### Pattern 3: Error Handling
 
 ```python
-from llm_abstraction.exceptions import (
+from stratumai.exceptions import (
     RateLimitException,
     ModelNotFoundError,
     ProviderAPIError
@@ -794,14 +794,14 @@ response = client.chat(model=models[0], messages=[...])
 model = "gpt-4o-mini"  # instead of "gpt-4.1"
 
 # 2. Enable caching
-from llm_abstraction.caching import cache_response
+from stratumai.caching import cache_response
 
 @cache_response(ttl=3600)
 def ask(question):
     return client.chat(model="gpt-4o-mini", messages=[...])
 
 # 3. Use Router with COST strategy
-from llm_abstraction import Router, RoutingStrategy
+from stratumai import Router, RoutingStrategy
 
 router = Router(client)
 response = router.route(messages=[...], strategy=RoutingStrategy.COST)

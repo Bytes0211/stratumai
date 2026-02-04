@@ -4,11 +4,12 @@ This module provides abstraction for generating embeddings from text using
 various provider APIs (OpenAI, Cohere, etc.).
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
 import os
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from .exceptions import ProviderAPIError, AuthenticationError
 
@@ -37,7 +38,7 @@ class EmbeddingProvider(ABC):
     """
     
     @abstractmethod
-    def generate_embeddings(
+    async def generate_embeddings(
         self,
         texts: List[str],
         model: Optional[str] = None
@@ -68,6 +69,14 @@ class EmbeddingProvider(ABC):
             Embedding dimension (e.g., 1536 for text-embedding-3-small)
         """
         pass
+    
+    def generate_embeddings_sync(
+        self,
+        texts: List[str],
+        model: Optional[str] = None
+    ) -> EmbeddingResult:
+        """Synchronous wrapper for generate_embeddings."""
+        return asyncio.run(self.generate_embeddings(texts, model))
 
 
 class OpenAIEmbeddingProvider(EmbeddingProvider):
@@ -112,9 +121,9 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                 "or pass api_key parameter."
             )
         
-        self.client = OpenAI(api_key=self.api_key)
+        self.client = AsyncOpenAI(api_key=self.api_key)
     
-    def generate_embeddings(
+    async def generate_embeddings(
         self,
         texts: List[str],
         model: Optional[str] = None
@@ -150,7 +159,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         
         try:
             # Call OpenAI API
-            response = self.client.embeddings.create(
+            response = await self.client.embeddings.create(
                 input=texts,
                 model=model
             )
@@ -176,7 +185,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
             else:
                 raise ProviderAPIError(f"OpenAI embedding request failed: {error_msg}")
     
-    def generate_embedding(self, text: str, model: Optional[str] = None) -> List[float]:
+    async def generate_embedding(self, text: str, model: Optional[str] = None) -> List[float]:
         """Generate embedding for a single text string.
         
         Convenience method for single text embedding.
@@ -188,7 +197,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         Returns:
             Embedding vector as List[float]
         """
-        result = self.generate_embeddings([text], model=model)
+        result = await self.generate_embeddings([text], model=model)
         return result.embeddings[0]
     
     def get_embedding_dimension(self, model: str) -> int:

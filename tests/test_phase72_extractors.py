@@ -4,24 +4,24 @@ import pytest
 import json
 import tempfile
 from pathlib import Path
-from llm_abstraction.utils.csv_extractor import (
+from stratumai.utils.csv_extractor import (
     extract_csv_schema,
     analyze_csv_file,
     estimate_token_reduction
 )
-from llm_abstraction.utils.json_extractor import (
+from stratumai.utils.json_extractor import (
     infer_json_schema,
     extract_json_schema,
     analyze_json_file
 )
-from llm_abstraction.utils.log_extractor import (
+from stratumai.utils.log_extractor import (
     extract_timestamp,
     extract_log_level,
     extract_error_pattern,
     analyze_log_file,
     extract_log_summary
 )
-from llm_abstraction.utils.code_extractor import (
+from stratumai.utils.code_extractor import (
     extract_python_structure,
     analyze_code_file
 )

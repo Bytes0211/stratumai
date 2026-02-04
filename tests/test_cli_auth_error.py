@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from typer.testing import CliRunner
 from cli.stratumai_cli import app
-from llm_abstraction.exceptions import AuthenticationError
+from stratumai.exceptions import AuthenticationError
 
 runner = CliRunner()
 
@@ -17,7 +17,7 @@ class TestAuthenticationErrorHandling:
         """Test that chat command displays helpful auth error message."""
         # Mock LLMClient to raise AuthenticationError
         mock_client = Mock()
-        mock_client.chat_completion.side_effect = AuthenticationError("grok")
+        mock_client.chat_completion_sync.side_effect = AuthenticationError("grok")
         mock_client_class.return_value = mock_client
         
         # Run command with provider, model, and temperature to avoid interactive prompts
@@ -45,7 +45,7 @@ class TestAuthenticationErrorHandling:
     def test_chat_openai_auth_error(self, mock_client_class):
         """Test OpenAI-specific auth error message."""
         mock_client = Mock()
-        mock_client.chat_completion.side_effect = AuthenticationError("openai")
+        mock_client.chat_completion_sync.side_effect = AuthenticationError("openai")
         mock_client_class.return_value = mock_client
         
         result = runner.invoke(app, [
@@ -64,7 +64,7 @@ class TestAuthenticationErrorHandling:
     def test_chat_anthropic_auth_error(self, mock_client_class):
         """Test Anthropic-specific auth error message."""
         mock_client = Mock()
-        mock_client.chat_completion.side_effect = AuthenticationError("anthropic")
+        mock_client.chat_completion_sync.side_effect = AuthenticationError("anthropic")
         mock_client_class.return_value = mock_client
         
         result = runner.invoke(app, [
@@ -83,7 +83,7 @@ class TestAuthenticationErrorHandling:
     def test_chat_google_auth_error(self, mock_client_class):
         """Test Google-specific auth error message."""
         mock_client = Mock()
-        mock_client.chat_completion.side_effect = AuthenticationError("google")
+        mock_client.chat_completion_sync.side_effect = AuthenticationError("google")
         mock_client_class.return_value = mock_client
         
         result = runner.invoke(app, [
@@ -102,7 +102,7 @@ class TestAuthenticationErrorHandling:
     def test_chat_deepseek_auth_error(self, mock_client_class):
         """Test DeepSeek-specific auth error message."""
         mock_client = Mock()
-        mock_client.chat_completion.side_effect = AuthenticationError("deepseek")
+        mock_client.chat_completion_sync.side_effect = AuthenticationError("deepseek")
         mock_client_class.return_value = mock_client
         
         result = runner.invoke(app, [
@@ -121,7 +121,7 @@ class TestAuthenticationErrorHandling:
     def test_chat_groq_auth_error(self, mock_client_class):
         """Test Groq-specific auth error message."""
         mock_client = Mock()
-        mock_client.chat_completion.side_effect = AuthenticationError("groq")
+        mock_client.chat_completion_sync.side_effect = AuthenticationError("groq")
         mock_client_class.return_value = mock_client
         
         result = runner.invoke(app, [
@@ -140,7 +140,7 @@ class TestAuthenticationErrorHandling:
     def test_chat_openrouter_auth_error(self, mock_client_class):
         """Test OpenRouter-specific auth error message."""
         mock_client = Mock()
-        mock_client.chat_completion.side_effect = AuthenticationError("openrouter")
+        mock_client.chat_completion_sync.side_effect = AuthenticationError("openrouter")
         mock_client_class.return_value = mock_client
         
         result = runner.invoke(app, [
@@ -159,7 +159,7 @@ class TestAuthenticationErrorHandling:
     def test_chat_ollama_auth_error(self, mock_client_class):
         """Test Ollama-specific auth error message."""
         mock_client = Mock()
-        mock_client.chat_completion.side_effect = AuthenticationError("ollama")
+        mock_client.chat_completion_sync.side_effect = AuthenticationError("ollama")
         mock_client_class.return_value = mock_client
         
         result = runner.invoke(app, [

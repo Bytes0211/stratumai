@@ -146,7 +146,7 @@ python -m cli.stratumai_cli chat --file docs.txt --auto-select
 ### Scenario 5: RAG for Massive Documentation (✅ Now Available)
 ```python
 # Problem: 50 MB documentation, need to query multiple times
-from llm_abstraction import RAGClient
+from stratumai import RAGClient
 
 rag = RAGClient()
 

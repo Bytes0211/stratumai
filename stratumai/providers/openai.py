@@ -1,67 +1,65 @@
-"""Base class for OpenAI-compatible providers."""
+"""OpenAI provider implementation."""
 
+import os
 from datetime import datetime
-from typing import Dict, Iterator, List
+from typing import AsyncIterator, List, Optional
 
-from openai import OpenAI, APIStatusError, APIError
+from openai import AsyncOpenAI
 
-from ..config import PROVIDER_CONSTRAINTS
-from ..exceptions import ProviderAPIError, InvalidModelError, InsufficientBalanceError, AuthenticationError
+from ..config import OPENAI_MODELS, PROVIDER_CONSTRAINTS
+from ..exceptions import AuthenticationError, InvalidModelError, ProviderAPIError
 from ..models import ChatRequest, ChatResponse, Usage
 from .base import BaseProvider
 
 
-class OpenAICompatibleProvider(BaseProvider):
-    """
-    Base class for providers with OpenAI-compatible APIs.
-    
-    This includes: Google Gemini, DeepSeek, Groq, Grok, OpenRouter, Ollama.
-    """
+class OpenAIProvider(BaseProvider):
+    """OpenAI provider implementation with cost tracking."""
     
     def __init__(
         self,
-        api_key: str,
-        base_url: str,
-        model_catalog: Dict,
+        api_key: Optional[str] = None,
         config: dict = None
     ):
         """
-        Initialize OpenAI-compatible provider.
+        Initialize OpenAI provider.
         
         Args:
-            api_key: Provider API key
-            base_url: Provider base URL
-            model_catalog: Model catalog for this provider
+            api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
             config: Optional provider-specific configuration
+            
+        Raises:
+            ValueError: If API key not provided (with helpful setup instructions)
         """
+        from ..api_key_helper import get_api_key_or_error
+        api_key = get_api_key_or_error("openai", api_key)
         super().__init__(api_key, config)
-        self.base_url = base_url
-        self.model_catalog = model_catalog
         self._initialize_client()
     
     def _initialize_client(self) -> None:
-        """Initialize OpenAI-compatible client."""
+        """Initialize OpenAI async client."""
         try:
-            self._client = OpenAI(
-                api_key=self.api_key,
-                base_url=self.base_url
-            )
+            self._client = AsyncOpenAI(api_key=self.api_key)
         except Exception as e:
             raise ProviderAPIError(
-                f"Failed to initialize {self.provider_name} client: {str(e)}",
-                self.provider_name
+                f"Failed to initialize OpenAI client: {str(e)}",
+                "openai"
             )
     
+    @property
+    def provider_name(self) -> str:
+        """Return provider name."""
+        return "openai"
+    
     def get_supported_models(self) -> List[str]:
-        """Return list of supported models."""
-        return list(self.model_catalog.keys())
+        """Return list of supported OpenAI models."""
+        return list(OPENAI_MODELS.keys())
     
     def supports_caching(self, model: str) -> bool:
         """Check if model supports prompt caching."""
-        model_info = self.model_catalog.get(model, {})
+        model_info = OPENAI_MODELS.get(model, {})
         return model_info.get("supports_caching", False)
     
-    def chat_completion(self, request: ChatRequest) -> ChatResponse:
+    async def chat_completion(self, request: ChatRequest) -> ChatResponse:
         """
         Execute chat completion request.
         
@@ -78,7 +76,7 @@ class OpenAICompatibleProvider(BaseProvider):
         if not self.validate_model(request.model):
             raise InvalidModelError(request.model, self.provider_name)
         
-        # Validate temperature constraints (most OpenAI-compatible providers use 0.0 to 2.0)
+        # Validate temperature constraints for OpenAI (0.0 to 2.0)
         constraints = PROVIDER_CONSTRAINTS.get(self.provider_name, {})
         self.validate_temperature(
             request.temperature,
@@ -86,7 +84,7 @@ class OpenAICompatibleProvider(BaseProvider):
             constraints.get("max_temperature", 2.0)
         )
         
-        # Build OpenAI-compatible request parameters
+        # Build OpenAI-specific request parameters
         messages = []
         for msg in request.messages:
             message_dict = {"role": msg.role, "content": msg.content}
@@ -100,30 +98,30 @@ class OpenAICompatibleProvider(BaseProvider):
             "messages": messages,
         }
         
-        # Check if model is a reasoning model
-        model_info = self.model_catalog.get(request.model, {})
+        # Check if model is a reasoning model (o-series)
+        model_info = OPENAI_MODELS.get(request.model, {})
         is_reasoning_model = model_info.get("reasoning_model", False)
         
-        # Also check model name patterns for reasoning models
+        # Also check if model name starts with o1, o3, gpt-5, or just 'o' followed by a digit
+        # This catches variants like o1-preview, o1-2024-12-17, o3-mini, gpt-5, etc.
         if not is_reasoning_model and request.model:
             model_lower = request.model.lower()
+            # Match: o1*, o3*, gpt-5*, "reasoning", or o followed by digit
             is_reasoning_model = (
                 model_lower.startswith("o1") or 
                 model_lower.startswith("o3") or
                 model_lower.startswith("gpt-5") or
-                "reasoner" in model_lower or
                 "reasoning" in model_lower or
                 (model_lower.startswith("o") and len(model_lower) > 1 and model_lower[1].isdigit())
             )
         
-        # Only add temperature and sampling params for non-reasoning models
+        # Only add these parameters for non-reasoning models
+        # Reasoning models like o1, o1-mini, o3-mini don't support temperature/top_p/penalties
         if not is_reasoning_model:
             openai_params["temperature"] = request.temperature
             openai_params["top_p"] = request.top_p
-            if request.frequency_penalty:
-                openai_params["frequency_penalty"] = request.frequency_penalty
-            if request.presence_penalty:
-                openai_params["presence_penalty"] = request.presence_penalty
+            openai_params["frequency_penalty"] = request.frequency_penalty
+            openai_params["presence_penalty"] = request.presence_penalty
         
         # Add optional parameters
         if request.max_tokens:
@@ -131,36 +129,28 @@ class OpenAICompatibleProvider(BaseProvider):
         if request.stop:
             openai_params["stop"] = request.stop
         
+        # Add reasoning_effort for o-series models
+        if request.reasoning_effort and "o" in request.model:
+            openai_params["reasoning_effort"] = request.reasoning_effort
+        
         # Add any extra params
         if request.extra_params:
             openai_params.update(request.extra_params)
         
         try:
             # Make API request
-            raw_response = self._client.chat.completions.create(**openai_params)
+            raw_response = await self._client.chat.completions.create(**openai_params)
             # Normalize and return
             return self._normalize_response(raw_response.model_dump())
-        except (APIStatusError, APIError) as e:
-            error_msg = str(e)
-            # Check for specific error types
-            if "insufficient balance" in error_msg.lower():
-                raise InsufficientBalanceError(self.provider_name)
-            elif "invalid_api_key" in error_msg.lower() or "unauthorized" in error_msg.lower() or (hasattr(e, 'status_code') and e.status_code == 401):
-                raise AuthenticationError(self.provider_name)
-            else:
-                raise ProviderAPIError(
-                    f"Chat completion failed: {error_msg}",
-                    self.provider_name
-                )
         except Exception as e:
             raise ProviderAPIError(
                 f"Chat completion failed: {str(e)}",
                 self.provider_name
             )
     
-    def chat_completion_stream(
+    async def chat_completion_stream(
         self, request: ChatRequest
-    ) -> Iterator[ChatResponse]:
+    ) -> AsyncIterator[ChatResponse]:
         """
         Execute streaming chat completion request.
         
@@ -177,14 +167,6 @@ class OpenAICompatibleProvider(BaseProvider):
         if not self.validate_model(request.model):
             raise InvalidModelError(request.model, self.provider_name)
         
-        # Validate temperature constraints (most OpenAI-compatible providers use 0.0 to 2.0)
-        constraints = PROVIDER_CONSTRAINTS.get(self.provider_name, {})
-        self.validate_temperature(
-            request.temperature,
-            constraints.get("min_temperature", 0.0),
-            constraints.get("max_temperature", 2.0)
-        )
-        
         # Build request parameters
         openai_params = {
             "model": request.model,
@@ -196,17 +178,16 @@ class OpenAICompatibleProvider(BaseProvider):
         }
         
         # Check if model is a reasoning model
-        model_info = self.model_catalog.get(request.model, {})
+        model_info = OPENAI_MODELS.get(request.model, {})
         is_reasoning_model = model_info.get("reasoning_model", False)
         
-        # Also check model name patterns for reasoning models
+        # Also check if model name starts with o1, o3, gpt-5, or just 'o' followed by a digit
         if not is_reasoning_model and request.model:
             model_lower = request.model.lower()
             is_reasoning_model = (
                 model_lower.startswith("o1") or 
                 model_lower.startswith("o3") or
                 model_lower.startswith("gpt-5") or
-                "reasoner" in model_lower or
                 "reasoning" in model_lower or
                 (model_lower.startswith("o") and len(model_lower) > 1 and model_lower[1].isdigit())
             )
@@ -219,24 +200,12 @@ class OpenAICompatibleProvider(BaseProvider):
             openai_params["max_tokens"] = request.max_tokens
         
         try:
-            stream = self._client.chat.completions.create(**openai_params)
+            stream = await self._client.chat.completions.create(**openai_params)
             
-            for chunk in stream:
+            async for chunk in stream:
                 chunk_dict = chunk.model_dump()
                 if chunk.choices and chunk.choices[0].delta.content:
                     yield self._normalize_stream_chunk(chunk_dict)
-        except (APIStatusError, APIError) as e:
-            error_msg = str(e)
-            # Check for specific error types
-            if "insufficient balance" in error_msg.lower():
-                raise InsufficientBalanceError(self.provider_name)
-            elif "invalid_api_key" in error_msg.lower() or "unauthorized" in error_msg.lower() or (hasattr(e, 'status_code') and e.status_code == 401):
-                raise AuthenticationError(self.provider_name)
-            else:
-                raise ProviderAPIError(
-                    f"Streaming chat completion failed: {error_msg}",
-                    self.provider_name
-                )
         except Exception as e:
             raise ProviderAPIError(
                 f"Streaming chat completion failed: {str(e)}",
@@ -245,19 +214,19 @@ class OpenAICompatibleProvider(BaseProvider):
     
     def _normalize_response(self, raw_response: dict) -> ChatResponse:
         """
-        Convert OpenAI-compatible response to unified format.
+        Convert OpenAI response to unified format.
         
         Args:
-            raw_response: Raw API response
+            raw_response: Raw OpenAI API response
             
         Returns:
             Normalized ChatResponse with cost
         """
         choice = raw_response["choices"][0]
-        usage_dict = raw_response.get("usage") or {}
+        usage_dict = raw_response.get("usage", {})
         
         # Extract token usage
-        prompt_details = usage_dict.get("prompt_tokens_details") or {}
+        prompt_details = usage_dict.get("prompt_tokens_details", {})
         usage = Usage(
             prompt_tokens=usage_dict.get("prompt_tokens", 0),
             completion_tokens=usage_dict.get("completion_tokens", 0),
@@ -265,6 +234,9 @@ class OpenAICompatibleProvider(BaseProvider):
             cached_tokens=prompt_details.get("cached_tokens", 0),
             cache_creation_tokens=prompt_details.get("cache_creation_input_tokens", 0),
             cache_read_tokens=prompt_details.get("cached_tokens", 0),
+            reasoning_tokens=usage_dict.get("completion_tokens_details", {}).get(
+                "reasoning_tokens", 0
+            ),
         )
         
         # Calculate cost including cache costs
@@ -285,13 +257,13 @@ class OpenAICompatibleProvider(BaseProvider):
             }
         
         return ChatResponse(
-            id=raw_response.get("id", ""),
+            id=raw_response["id"],
             model=raw_response["model"],
             content=choice["message"]["content"] or "",
             finish_reason=choice["finish_reason"],
             usage=usage,
             provider=self.provider_name,
-            created_at=datetime.fromtimestamp(raw_response.get("created", 0)) if raw_response.get("created") else datetime.now(),
+            created_at=datetime.fromtimestamp(raw_response["created"]),
             raw_response=raw_response,
         )
     
@@ -301,7 +273,7 @@ class OpenAICompatibleProvider(BaseProvider):
         content = choice["delta"].get("content", "")
         
         return ChatResponse(
-            id=chunk_dict.get("id", ""),
+            id=chunk_dict["id"],
             model=chunk_dict["model"],
             content=content,
             finish_reason=choice.get("finish_reason", ""),
@@ -311,7 +283,7 @@ class OpenAICompatibleProvider(BaseProvider):
                 total_tokens=0
             ),
             provider=self.provider_name,
-            created_at=datetime.fromtimestamp(chunk_dict.get("created", 0)) if chunk_dict.get("created") else datetime.now(),
+            created_at=datetime.fromtimestamp(chunk_dict["created"]),
             raw_response=chunk_dict,
         )
     
@@ -326,7 +298,7 @@ class OpenAICompatibleProvider(BaseProvider):
         Returns:
             Cost in USD
         """
-        model_info = self.model_catalog.get(model, {})
+        model_info = OPENAI_MODELS.get(model, {})
         cost_input = model_info.get("cost_input", 0.0)
         cost_output = model_info.get("cost_output", 0.0)
         
@@ -356,7 +328,7 @@ class OpenAICompatibleProvider(BaseProvider):
         Returns:
             Cost in USD for cache operations
         """
-        model_info = self.model_catalog.get(model, {})
+        model_info = OPENAI_MODELS.get(model, {})
         
         # Check if model supports caching
         if not model_info.get("supports_caching", False):

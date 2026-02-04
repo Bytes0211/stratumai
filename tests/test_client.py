@@ -1,12 +1,13 @@
 """Unit tests for unified LLM client."""
 
-from unittest.mock import MagicMock, patch
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from llm_abstraction.client import LLMClient
-from llm_abstraction.exceptions import InvalidModelError, InvalidProviderError
-from llm_abstraction.models import ChatRequest, Message
+from stratumai.client import LLMClient
+from stratumai.exceptions import InvalidModelError, InvalidProviderError
+from stratumai.models import ChatRequest, Message
 
 
 class TestLLMClient:
@@ -18,7 +19,7 @@ class TestLLMClient:
         assert client.provider_name is None
         assert client._provider_instance is None
     
-    @patch('llm_abstraction.providers.openai.OpenAI')
+    @patch('stratumai.providers.openai.AsyncOpenAI')
     def test_client_initialization_with_provider(self, mock_openai):
         """Test client initialization with specific provider."""
         mock_openai.return_value = MagicMock()
@@ -55,8 +56,9 @@ class TestLLMClient:
         with pytest.raises(InvalidModelError):
             client._detect_provider("nonexistent-model")
     
-    @patch('llm_abstraction.providers.openai.OpenAI')
-    def test_chat_with_auto_detection(self, mock_openai):
+    @patch('stratumai.providers.openai.AsyncOpenAI')
+    @pytest.mark.asyncio
+    async def test_chat_with_auto_detection(self, mock_openai):
         """Test chat method with automatic provider detection."""
         # Setup mock OpenAI client
         mock_client = MagicMock()
@@ -70,19 +72,21 @@ class TestLLMClient:
             "choices": [{"message": {"content": "Hi"}, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
         }
-        mock_client.chat.completions.create.return_value = mock_response
+        # Make create() return a coroutine
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
         
         # Execute
         client = LLMClient(api_key="test-key")
         messages = [Message(role="user", content="Hello")]
-        response = client.chat(model="gpt-4.1-mini", messages=messages)
+        response = await client.chat(model="gpt-4.1-mini", messages=messages)
         
         # Verify provider was initialized and called
         assert client._provider_instance is not None
         mock_client.chat.completions.create.assert_called_once()
     
-    @patch('llm_abstraction.providers.openai.OpenAI')
-    def test_chat_completion_request(self, mock_openai):
+    @patch('stratumai.providers.openai.AsyncOpenAI')
+    @pytest.mark.asyncio
+    async def test_chat_completion_request(self, mock_openai):
         """Test chat_completion method with ChatRequest."""
         # Setup mock
         mock_client = MagicMock()
@@ -96,7 +100,7 @@ class TestLLMClient:
             "choices": [{"message": {"content": "Hi"}, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
         }
-        mock_client.chat.completions.create.return_value = mock_response
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
         
         # Execute
         client = LLMClient(api_key="test-key")
@@ -104,13 +108,14 @@ class TestLLMClient:
             model="gpt-4.1-mini",
             messages=[Message(role="user", content="Hello")]
         )
-        response = client.chat_completion(request)
+        response = await client.chat_completion(request)
         
         # Verify
         assert response.content == "Hi"
     
-    @patch('llm_abstraction.providers.openai.OpenAI')
-    def test_chat_with_parameters(self, mock_openai):
+    @patch('stratumai.providers.openai.AsyncOpenAI')
+    @pytest.mark.asyncio
+    async def test_chat_with_parameters(self, mock_openai):
         """Test chat method with additional parameters."""
         # Setup mock
         mock_client = MagicMock()
@@ -124,12 +129,12 @@ class TestLLMClient:
             "choices": [{"message": {"content": "Hi"}, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
         }
-        mock_client.chat.completions.create.return_value = mock_response
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
         
         # Execute
         client = LLMClient(api_key="test-key")
         messages = [Message(role="user", content="Hello")]
-        response = client.chat(
+        response = await client.chat(
             model="gpt-4.1-mini",
             messages=messages,
             temperature=0.5,
@@ -162,8 +167,9 @@ class TestLLMClient:
         assert "gpt-4.1-mini" in openai_models
         assert "claude-3-5-sonnet-20241022" not in openai_models
     
-    @patch('llm_abstraction.providers.openai.OpenAI')
-    def test_streaming_request(self, mock_openai):
+    @patch('stratumai.providers.openai.AsyncOpenAI')
+    @pytest.mark.asyncio
+    async def test_streaming_request(self, mock_openai):
         """Test streaming chat completion."""
         # Setup mock
         mock_client = MagicMock()
@@ -188,18 +194,22 @@ class TestLLMClient:
         }
         mock_chunk2.choices = [MagicMock(delta=MagicMock(content="!"))]
         
-        mock_stream = iter([mock_chunk1, mock_chunk2])
-        mock_client.chat.completions.create.return_value = mock_stream
+        # Create async iterator for streaming
+        async def async_iter_chunks():
+            yield mock_chunk1
+            yield mock_chunk2
+        
+        mock_client.chat.completions.create = AsyncMock(return_value=async_iter_chunks())
         
         # Execute
         client = LLMClient(api_key="test-key")
         messages = [Message(role="user", content="Hello")]
-        stream = client.chat(
+        stream = await client.chat(
             model="gpt-4.1-mini",
             messages=messages,
             stream=True
         )
         
         # Verify streaming was called and consume stream
-        chunks = list(stream)
+        chunks = [chunk async for chunk in stream]
         assert len(chunks) == 2

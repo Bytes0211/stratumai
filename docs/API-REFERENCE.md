@@ -39,7 +39,7 @@ pip install -r requirements.txt
 ### Basic Usage
 
 ```python
-from llm_abstraction import LLMClient
+from stratumai import LLMClient
 
 # Initialize client
 client = LLMClient()
@@ -215,7 +215,7 @@ class Message:
 
 **Example:**
 ```python
-from llm_abstraction.models import Message
+from stratumai.models import Message
 
 msg = Message(
     role="user",
@@ -352,7 +352,7 @@ response = client.chat(
 
 **Prompt Caching:**
 ```python
-from llm_abstraction.models import Message
+from stratumai.models import Message
 
 # Explicit cache control
 messages = [
@@ -443,7 +443,7 @@ route(
 
 **Example:**
 ```python
-from llm_abstraction import Router, RoutingStrategy
+from stratumai import Router, RoutingStrategy
 
 router = Router(client, default_strategy=RoutingStrategy.HYBRID)
 
@@ -455,7 +455,7 @@ response = router.route(
 print(f"Selected model: {response.model}")
 
 # With constraints
-from llm_abstraction.router import RoutingConstraints
+from stratumai.router import RoutingConstraints
 
 response = router.route(
     messages=[{"role": "user", "content": "Complex analysis task"}],
@@ -540,7 +540,7 @@ record_call(
 
 **Example:**
 ```python
-from llm_abstraction import CostTracker
+from stratumai import CostTracker
 
 tracker = CostTracker(budget_limit=10.0)
 
@@ -611,7 +611,7 @@ ResponseCache(
 #### Usage
 
 ```python
-from llm_abstraction.caching import ResponseCache
+from stratumai.caching import ResponseCache
 
 cache = ResponseCache(max_size=500, ttl=1800)
 
@@ -634,7 +634,7 @@ else:
 ### Decorator Usage
 
 ```python
-from llm_abstraction.caching import cache_response
+from stratumai.caching import cache_response
 
 @cache_response(ttl=1800)
 def ask_llm(question: str) -> str:
@@ -668,7 +668,7 @@ Provider-level prompt caching for repeated long contexts.
 **Example:**
 ```python
 # Anthropic explicit caching
-from llm_abstraction.models import Message
+from stratumai.models import Message
 
 long_doc = "..." * 10000  # Large document
 
@@ -721,7 +721,7 @@ LLMException (base)
 ### Usage
 
 ```python
-from llm_abstraction.exceptions import (
+from stratumai.exceptions import (
     RateLimitException,
     BudgetExceededException,
     ModelNotFoundError
@@ -742,7 +742,7 @@ except BudgetExceededException as e:
 Automatic retry with exponential backoff.
 
 ```python
-from llm_abstraction.retry import with_retry, RetryConfig
+from stratumai.retry import with_retry, RetryConfig
 
 config = RetryConfig(
     max_retries=3,
@@ -898,8 +898,8 @@ See [cli-usage.md](cli-usage.md) for complete CLI documentation.
 ### Multi-Provider Fallback
 
 ```python
-from llm_abstraction import LLMClient
-from llm_abstraction.retry import with_retry, RetryConfig
+from stratumai import LLMClient
+from stratumai.retry import with_retry, RetryConfig
 
 client = LLMClient()
 
@@ -920,8 +920,8 @@ print(f"Model used: {response.model}")
 ### Budget-Aware Routing
 
 ```python
-from llm_abstraction import Router, CostTracker
-from llm_abstraction.router import RoutingStrategy, RoutingConstraints
+from stratumai import Router, CostTracker
+from stratumai.router import RoutingStrategy, RoutingConstraints
 
 tracker = CostTracker(budget_limit=5.0)
 router = Router(client)
@@ -944,7 +944,7 @@ print(f"Budget remaining: ${remaining:.2f}")
 ### Streaming with Cost Tracking
 
 ```python
-from llm_abstraction import LLMClient, CostTracker
+from stratumai import LLMClient, CostTracker
 
 client = LLMClient()
 tracker = CostTracker()

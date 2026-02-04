@@ -8,6 +8,7 @@ This module provides a complete RAG pipeline that integrates:
 - LLM-based response generation with citations
 """
 
+import asyncio
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 from pathlib import Path
@@ -95,7 +96,7 @@ class RAGClient:
             llm_client = LLMClient()
         self.llm_client = llm_client
     
-    def index_file(
+    async def index_file(
         self,
         file_path: str,
         collection_name: str,
@@ -140,7 +141,9 @@ class RAGClient:
         ]
         
         # Add to vector database (this generates embeddings automatically)
-        self.vectordb.add_documents(
+        # Run in thread pool since ChromaDB is sync
+        await asyncio.to_thread(
+            self.vectordb.add_documents,
             collection_name=collection_name,
             documents=chunks,
             metadatas=metadatas
@@ -158,7 +161,7 @@ class RAGClient:
             embedding_cost=0.0  # Would need to track from vectordb
         )
     
-    def index_directory(
+    async def index_directory(
         self,
         directory_path: str,
         collection_name: str,
@@ -202,7 +205,7 @@ class RAGClient:
         
         for file_path in files:
             try:
-                result = self.index_file(
+                result = await self.index_file(
                     file_path=str(file_path),
                     collection_name=collection_name,
                     chunk_size=chunk_size,
@@ -222,7 +225,7 @@ class RAGClient:
             embedding_cost=0.0
         )
     
-    def query(
+    async def query(
         self,
         collection_name: str,
         query: str,
@@ -244,8 +247,9 @@ class RAGClient:
         Returns:
             RAGResponse with generated content and sources
         """
-        # Retrieve relevant chunks
-        search_results = self.vectordb.query(
+        # Retrieve relevant chunks (run in thread pool since ChromaDB is sync)
+        search_results = await asyncio.to_thread(
+            self.vectordb.query,
             collection_name=collection_name,
             query_text=query,
             n_results=n_results
@@ -293,7 +297,7 @@ Answer:"""
         
         # Create client with specified provider for this request
         client = LLMClient(provider=provider)
-        response = client.chat_completion(request=request)
+        response = await client.chat_completion(request=request)
         
         # Calculate total cost (embedding + generation)
         total_cost = response.usage.cost_usd if response.usage else 0.0

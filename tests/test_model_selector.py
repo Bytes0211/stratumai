@@ -2,13 +2,13 @@
 
 import pytest
 from pathlib import Path
-from llm_abstraction.utils.model_selector import (
+from stratumai.utils.model_selector import (
     ModelSelector,
     ExtractionMode,
     ModelRecommendation,
     select_model_for_file,
 )
-from llm_abstraction.utils.file_analyzer import FileType
+from stratumai.utils.file_analyzer import FileType
 
 
 class TestModelSelector:

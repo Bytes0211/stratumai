@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-from llm_abstraction import RAGClient
+from stratumai import RAGClient
 
 def example_basic_rag():
     """Basic RAG example: Index a file and query it."""

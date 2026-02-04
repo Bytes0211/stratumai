@@ -16,12 +16,12 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from llm_abstraction import LLMClient, ChatRequest, Message, Router, RoutingStrategy, get_cache_stats
-from llm_abstraction.caching import get_cache_entries, clear_cache
-from llm_abstraction.config import MODEL_CATALOG, PROVIDER_ENV_VARS
-from llm_abstraction.exceptions import InvalidProviderError, InvalidModelError, AuthenticationError
-from llm_abstraction.summarization import summarize_file
-from llm_abstraction.utils.file_analyzer import analyze_file
+from stratumai import LLMClient, ChatRequest, Message, Router, RoutingStrategy, get_cache_stats
+from stratumai.caching import get_cache_entries, clear_cache
+from stratumai.config import MODEL_CATALOG, PROVIDER_ENV_VARS
+from stratumai.exceptions import InvalidProviderError, InvalidModelError, AuthenticationError
+from stratumai.summarization import summarize_file
+from stratumai.utils.file_analyzer import analyze_file
 from pathlib import Path
 
 # Initialize Typer app and Rich console
@@ -125,7 +125,7 @@ def _chat_impl(
     try:
         # Auto-select model based on file type if enabled
         if auto_select and file and not (provider and model):
-            from llm_abstraction.utils.model_selector import select_model_for_file
+            from stratumai.utils.model_selector import select_model_for_file
             
             try:
                 auto_provider, auto_model, reasoning = select_model_for_file(file)
@@ -390,7 +390,7 @@ def _chat_impl(
         else:
             # Show spinner while waiting for response
             with console.status("[cyan]Thinking...", spinner="dots"):
-                response = client.chat_completion(request)
+                response = client.chat_completion_sync(request)
                 response_content = response.content
             
             # Display metadata before response
@@ -404,6 +404,10 @@ def _chat_impl(
                 f"Total: {response.usage.total_tokens:,}",
                 f"Cost: ${response.usage.cost_usd:.6f}"
             ]
+            
+            # Add latency if available
+            if response.latency_ms is not None:
+                usage_parts.append(f"Latency: {response.latency_ms:.0f}ms")
             
             # Add cache statistics if available
             if response.usage.cached_tokens > 0:
@@ -466,7 +470,7 @@ def _chat_impl(
             console.print("\n[dim]Tip: Use 'stratumai interactive' for a better multi-turn conversation experience[/dim]")
         
         # Recursive call with conversation history
-        _chat_impl(None, provider, model, temperature, max_tokens, stream, None, None, False, chunked, chunk_size, messages)
+        _chat_impl(None, provider, model, temperature, max_tokens, stream, None, None, False, chunked, chunk_size, False, messages)
     
     except InvalidProviderError as e:
         console.print(f"[red]Invalid provider:[/red] {e}")
@@ -673,7 +677,7 @@ def route(
             
             # Show spinner while waiting for response
             with console.status("[cyan]Thinking...", spinner="dots"):
-                response = client.chat_completion(request)
+                response = client.chat_completion_sync(request)
             
             # Get model info for context window
             route_model_info = MODEL_CATALOG.get(provider, {}).get(model, {})
@@ -756,10 +760,10 @@ def interactive(
                     
                     if use_extraction:
                         try:
-                            from llm_abstraction.utils.csv_extractor import analyze_csv_file
-                            from llm_abstraction.utils.json_extractor import analyze_json_file
-                            from llm_abstraction.utils.log_extractor import extract_log_summary
-                            from llm_abstraction.utils.code_extractor import analyze_code_file
+                            from stratumai.utils.csv_extractor import analyze_csv_file
+                            from stratumai.utils.json_extractor import analyze_json_file
+                            from stratumai.utils.log_extractor import extract_log_summary
+                            from stratumai.utils.code_extractor import analyze_code_file
                             
                             if extension == '.csv':
                                 result = analyze_csv_file(file_path)
@@ -1233,7 +1237,7 @@ def interactive(
             try:
                 # Show spinner while waiting for response
                 with console.status("[cyan]Thinking...", spinner="dots"):
-                    response = client.chat_completion(request)
+                    response = client.chat_completion_sync(request)
                 
                 # Add assistant message to history
                 messages.append(Message(role="assistant", content=response.content))
@@ -1253,6 +1257,10 @@ def interactive(
                     f"Total: {response.usage.total_tokens:,}",
                     f"Cost: ${response.usage.cost_usd:.6f}"
                 ]
+                
+                # Add latency if available
+                if response.latency_ms is not None:
+                    usage_parts.append(f"Latency: {response.latency_ms:.0f}ms")
                 
                 # Add cache statistics if available
                 if response.usage.cached_tokens > 0:
@@ -1372,11 +1380,11 @@ def analyze(
     If --provider and --model are not specified, the optimal model is auto-selected.
     """
     try:
-        from llm_abstraction.utils.csv_extractor import analyze_csv_file
-        from llm_abstraction.utils.json_extractor import analyze_json_file
-        from llm_abstraction.utils.log_extractor import extract_log_summary
-        from llm_abstraction.utils.code_extractor import analyze_code_file
-        from llm_abstraction.utils.model_selector import select_model_for_file
+        from stratumai.utils.csv_extractor import analyze_csv_file
+        from stratumai.utils.json_extractor import analyze_json_file
+        from stratumai.utils.log_extractor import extract_log_summary
+        from stratumai.utils.code_extractor import analyze_code_file
+        from stratumai.utils.model_selector import select_model_for_file
         
         # Auto-select model if not specified
         if not provider or not model:
@@ -1578,7 +1586,7 @@ def setup():
     Shows which providers have API keys configured and provides
     links to get API keys for providers you want to use.
     """
-    from llm_abstraction.api_key_helper import (
+    from stratumai.api_key_helper import (
         APIKeyHelper,
         print_setup_instructions
     )
@@ -1611,7 +1619,7 @@ def check_keys():
     Displays a status report showing which providers are ready to use
     and which ones need API keys.
     """
-    from llm_abstraction.api_key_helper import APIKeyHelper
+    from stratumai.api_key_helper import APIKeyHelper
     
     available = APIKeyHelper.check_available_providers()
     

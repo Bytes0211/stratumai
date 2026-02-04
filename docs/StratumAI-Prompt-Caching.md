@@ -50,7 +50,7 @@ Response caching stores full LLM responses in memory and returns them for identi
 ## **Basic Example**
 
 ```python
-from llm_abstraction import LLMClient, Message
+from stratumai import LLMClient, Message
 
 client = LLMClient()
 
@@ -72,7 +72,7 @@ response2 = client.chat(
 ## **Custom Cache Configuration**
 
 ```python
-from llm_abstraction import ResponseCache, cache_response, LLMClient
+from stratumai import ResponseCache, cache_response, LLMClient
 
 custom_cache = ResponseCache(ttl=300, max_size=100)
 client = LLMClient()
@@ -85,7 +85,7 @@ def cached_chat(**kwargs):
 ## **Cache Management**
 
 ```python
-from llm_abstraction import get_cache_stats, clear_cache
+from stratumai import get_cache_stats, clear_cache
 
 stats = get_cache_stats()
 clear_cache()
@@ -131,7 +131,7 @@ This is ideal for:
 ## **Example: Caching a Large Document**
 
 ```python
-from llm_abstraction import LLMClient, Message
+from stratumai import LLMClient, Message
 
 client = LLMClient()
 

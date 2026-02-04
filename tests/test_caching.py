@@ -1,19 +1,20 @@
 """Tests for caching functionality."""
 
+import asyncio
 import time
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from llm_abstraction.caching import (
+from stratumai.caching import (
     ResponseCache,
     cache_response,
     clear_cache,
     generate_cache_key,
     get_cache_stats,
 )
-from llm_abstraction.models import ChatResponse, Message, Usage
+from stratumai.models import ChatResponse, Message, Usage
 
 
 class TestCacheKey:
@@ -238,13 +239,14 @@ class TestResponseCache:
 class TestCacheDecorator:
     """Tests for cache_response decorator."""
 
-    def test_decorator_caches_response(self):
+    @pytest.mark.asyncio
+    async def test_decorator_caches_response(self):
         """Test that decorator caches responses."""
         cache = ResponseCache()
         call_count = 0
 
         @cache_response(cache_instance=cache)
-        def mock_api_call(**kwargs):
+        async def mock_api_call(**kwargs):
             nonlocal call_count
             call_count += 1
             return ChatResponse(
@@ -259,7 +261,7 @@ class TestCacheDecorator:
             )
 
         # First call
-        response1 = mock_api_call(
+        response1 = await mock_api_call(
             model="gpt-4.1-mini",
             messages=[Message(role="user", content="Hi")],
             temperature=0.7,
@@ -267,7 +269,7 @@ class TestCacheDecorator:
         assert call_count == 1
 
         # Second call with same params - should use cache
-        response2 = mock_api_call(
+        response2 = await mock_api_call(
             model="gpt-4.1-mini",
             messages=[Message(role="user", content="Hi")],
             temperature=0.7,
@@ -275,13 +277,14 @@ class TestCacheDecorator:
         assert call_count == 1  # Should not increment
         assert response2.id == response1.id
 
-    def test_decorator_different_params_no_cache(self):
+    @pytest.mark.asyncio
+    async def test_decorator_different_params_no_cache(self):
         """Test that different parameters don't use cache."""
         cache = ResponseCache()
         call_count = 0
 
         @cache_response(cache_instance=cache)
-        def mock_api_call(**kwargs):
+        async def mock_api_call(**kwargs):
             nonlocal call_count
             call_count += 1
             return ChatResponse(
@@ -296,7 +299,7 @@ class TestCacheDecorator:
             )
 
         # First call
-        mock_api_call(
+        await mock_api_call(
             model="gpt-4.1-mini",
             messages=[Message(role="user", content="Hi")],
             temperature=0.7,
@@ -304,20 +307,21 @@ class TestCacheDecorator:
         assert call_count == 1
 
         # Second call with different params
-        mock_api_call(
+        await mock_api_call(
             model="gpt-4.1-mini",
             messages=[Message(role="user", content="Hi")],
             temperature=0.8,
         )
         assert call_count == 2  # Should increment
 
-    def test_decorator_respects_ttl(self):
+    @pytest.mark.asyncio
+    async def test_decorator_respects_ttl(self):
         """Test that decorator respects TTL."""
         cache = ResponseCache(ttl=1)
         call_count = 0
 
         @cache_response(ttl=1, cache_instance=cache)
-        def mock_api_call(**kwargs):
+        async def mock_api_call(**kwargs):
             nonlocal call_count
             call_count += 1
             return ChatResponse(
@@ -332,7 +336,7 @@ class TestCacheDecorator:
             )
 
         # First call
-        mock_api_call(
+        await mock_api_call(
             model="gpt-4.1-mini",
             messages=[Message(role="user", content="Hi")],
             temperature=0.7,
@@ -340,10 +344,10 @@ class TestCacheDecorator:
         assert call_count == 1
 
         # Wait for cache expiration
-        time.sleep(1.1)
+        await asyncio.sleep(1.1)
 
         # Should call API again
-        mock_api_call(
+        await mock_api_call(
             model="gpt-4.1-mini",
             messages=[Message(role="user", content="Hi")],
             temperature=0.7,
@@ -375,11 +379,11 @@ class TestGlobalCacheFunctions:
 class TestCacheCostCalculation:
     """Tests for cache cost calculation in OpenAI provider."""
 
-    @patch("llm_abstraction.providers.openai.OpenAI")
+    @patch("stratumai.providers.openai.AsyncOpenAI")
     def test_cache_cost_calculation(self, mock_openai_client):
         """Test that cache costs are calculated correctly."""
-        from llm_abstraction.models import Message, Usage
-        from llm_abstraction.providers.openai import OpenAIProvider
+        from stratumai.models import Message, Usage
+        from stratumai.providers.openai import OpenAIProvider
 
         # Mock OpenAI client
         mock_client = MagicMock()
@@ -402,10 +406,10 @@ class TestCacheCostCalculation:
         expected_cost = (1000 / 1_000_000) * 0.1875 + (500 / 1_000_000) * 0.015
         assert abs(cache_cost - expected_cost) < 0.000001
 
-    @patch("llm_abstraction.providers.openai.OpenAI")
+    @patch("stratumai.providers.openai.AsyncOpenAI")
     def test_supports_caching(self, mock_openai_client):
         """Test supports_caching method."""
-        from llm_abstraction.providers.openai import OpenAIProvider
+        from stratumai.providers.openai import OpenAIProvider
 
         mock_client = MagicMock()
         mock_openai_client.return_value = mock_client

@@ -5,13 +5,13 @@ model based on file type and extraction task.
 """
 
 from pathlib import Path
-from llm_abstraction.utils.model_selector import (
+from stratumai.utils.model_selector import (
     ModelSelector,
     ExtractionMode,
     select_model_for_file,
 )
-from llm_abstraction.router import Router
-from llm_abstraction.utils.file_analyzer import FileType
+from stratumai.router import Router
+from stratumai.utils.file_analyzer import FileType
 
 
 def demo_model_selector():

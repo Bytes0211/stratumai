@@ -71,7 +71,7 @@ pip install -e ".[dev]"
 pip show stratumai
 
 # Test import
-python -c "from llm_abstraction import LLMClient; print('Success!')"
+python -c "from stratumai import LLMClient; print('Success!')"
 
 # Test CLI
 stratumai --help
@@ -116,7 +116,7 @@ pip install ".[dev]"
 
 ```bash
 pip show stratumai
-python -c "from llm_abstraction import LLMClient; print('Success!')"
+python -c "from stratumai import LLMClient; print('Success!')"
 ```
 
 ### Note
@@ -204,8 +204,8 @@ Requires: anthropic, google-generativeai, httpx, openai, python-dotenv, rich, ty
 
 ```bash
 python3 << 'EOF'
-from llm_abstraction import LLMClient, ChatRequest, Message
-from llm_abstraction.router import Router, RoutingStrategy
+from stratumai import LLMClient, ChatRequest, Message
+from stratumai.router import Router, RoutingStrategy
 
 # Test client initialization
 client = LLMClient()
@@ -262,7 +262,7 @@ Once installed, you can use StratumAI in any Python project:
 
 ```python
 # your_project/main.py
-from llm_abstraction import LLMClient, ChatRequest, Message
+from stratumai import LLMClient, ChatRequest, Message
 
 # Initialize client
 client = LLMClient(provider="openai")
@@ -289,8 +289,8 @@ print(f"Cost: ${response.usage.cost_usd:.6f}")
 # Use Router with cost optimization and auto model selection
 
 from dotenv import load_dotenv
-from llm_abstraction import Message
-from llm_abstraction.router import Router, RoutingStrategy
+from stratumai import Message
+from stratumai.router import Router, RoutingStrategy
 
 # Load environment variables from .env file
 load_dotenv()
@@ -314,7 +314,7 @@ print(f"Cost: ${response.usage.cost_usd:.6f}")
 
 ```python
 from dotenv import load_dotenv
-from llm_abstraction import LLMClient, ChatRequest, Message
+from stratumai import LLMClient, ChatRequest, Message
 
 # Load environment variables from .env file
 load_dotenv()
@@ -443,7 +443,7 @@ StratumAI will automatically load from `.env` when available.
 ### Method 3: Pass Directly to Client
 
 ```python
-from llm_abstraction import LLMClient
+from stratumai import LLMClient
 
 client = LLMClient(provider="openai", api_key="sk-...")
 ```

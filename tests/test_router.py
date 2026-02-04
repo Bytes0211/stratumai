@@ -1,8 +1,8 @@
 """Unit tests for router module."""
 
 import pytest
-from llm_abstraction.router import Router, RoutingStrategy, ModelMetadata
-from llm_abstraction.models import Message
+from stratumai.router import Router, RoutingStrategy, ModelMetadata
+from stratumai.models import Message
 
 
 class TestRouter:

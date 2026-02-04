@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 load_dotenv()
 
-from llm_abstraction import (
+from stratumai import (
     LLMClient,
     Message,
     ResponseCache,

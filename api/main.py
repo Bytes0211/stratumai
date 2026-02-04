@@ -14,9 +14,9 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from llm_abstraction import LLMClient, ChatRequest, Message, ProviderType
-from llm_abstraction.cost_tracker import CostTracker
-from llm_abstraction.config import MODEL_CATALOG
+from stratumai import LLMClient, ChatRequest, Message, ProviderType
+from stratumai.cost_tracker import CostTracker
+from stratumai.config import MODEL_CATALOG
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -209,9 +209,9 @@ async def chat_completion(request: ChatCompletionRequest):
             max_tokens=request.max_tokens,
         )
         
-        # Initialize client and make request
+        # Initialize client and make request (now using native async)
         client = LLMClient(provider=request.provider)
-        response = client.chat_completion(chat_request)
+        response = await client.chat_completion(chat_request)
         
         # Track cost
         cost_tracker.add_entry(
@@ -342,11 +342,12 @@ async def chat_stream(websocket: WebSocket):
             max_tokens=max_tokens,
         )
         
-        # Initialize client and stream
+        # Initialize client and stream (now using native async)
         client = LLMClient(provider=provider)
         
         full_content = ""
-        for chunk in client.chat_completion_stream(chat_request):
+        stream = client.chat_completion_stream(chat_request)
+        async for chunk in stream:
             full_content += chunk.content
             await websocket.send_json({
                 "content": chunk.content,

@@ -369,7 +369,7 @@ This document lists all configured and tested LLM providers in StratumAI along w
 
 ### OpenAI
 ```python
-from llm_abstraction import LLMClient
+from stratumai import LLMClient
 
 client = LLMClient(provider="openai", api_key="sk-...")
 response = client.chat_completion("gpt-4o", messages=[...])

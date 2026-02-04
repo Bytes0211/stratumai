@@ -95,7 +95,7 @@ def count_tokens_for_messages(messages: List[Message], provider: str = "openai",
         Total estimated token count including formatting
         
     Examples:
-        >>> from llm_abstraction.models import Message
+        >>> from stratumai.models import Message
         >>> messages = [Message(role="user", content="Hello")]
         >>> count_tokens_for_messages(messages, provider="openai")
         7  # Content tokens + formatting tokens

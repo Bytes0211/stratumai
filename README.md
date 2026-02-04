@@ -9,8 +9,10 @@ StratumAI is a production‑ready Python framework that provides a unified inter
 
 ### Core
 - Unified API for 9+ LLM providers
+- Async-first architecture with sync wrappers
 - Automatic provider detection
 - Cost tracking and budget enforcement
+- Latency tracking on all responses
 - Retry logic with fallback models
 - Streaming support for all providers
 - Response caching + provider prompt caching
@@ -57,18 +59,20 @@ stratumai check-keys
 ## Quick Example
 
 ```python
-from llm_abstraction import LLMClient
-from llm_abstraction.models import Message
+from stratumai import LLMClient
+from stratumai.models import Message
 
 client = LLMClient()
 
-response = client.chat(
-    model="gpt-4o-mini",
-    messages=[Message(role="user", content="Explain quantum computing")]
-)
+# Async (recommended)
+response = await client.chat_completion(request)
+
+# Sync wrapper for scripts/CLI
+response = client.chat_completion_sync(request)
 
 print(response.content)
-print(response.usage.cost_usd)
+print(f"Cost: ${response.usage.cost_usd:.6f}")
+print(f"Latency: {response.latency_ms:.0f}ms")
 ```
 
 ## CLI Usage
@@ -99,8 +103,10 @@ stratumai cache-stats
 
 ```
 stratumai/
-├── llm_abstraction/      # Core package
-├── chat/                 # Provider-specific chat modules
+├── stratumai/            # Core package
+│   ├── chat/             # Provider-specific chat modules
+│   ├── providers/        # Provider implementations
+│   └── utils/            # Utilities (token counting, extraction, etc.)
 ├── cli/                  # Typer CLI
 ├── api/                  # Optional FastAPI server
 ├── examples/             # Usage examples
@@ -169,10 +175,13 @@ Modern AI applications require flexibility across providers, models, and capabil
 - Automatic provider detection  
 
 ### Reliability & Performance
+- Async-first with native SDK clients (AsyncOpenAI, AsyncAnthropic, aioboto3)
+- Sync wrappers (`chat_sync()`, `chat_completion_sync()`) for convenience
 - Retry logic with exponential backoff  
 - Fallback model chains  
-- Cost tracking and budget enforcement  
-- Streaming support for all providers  
+- Cost tracking and budget enforcement
+- Latency tracking (milliseconds) on all responses
+- Streaming support for all providers
 
 ### Intelligence Layer
 - Router with cost/quality/latency/hybrid strategies  
@@ -270,8 +279,8 @@ stratumai chat -p openai -m gpt-4o-mini -t "Hello!"
 ### Python Example
 
 ```python
-from llm_abstraction import LLMClient
-from llm_abstraction.models import Message
+from stratumai import LLMClient
+from stratumai.models import Message
 
 client = LLMClient()
 
