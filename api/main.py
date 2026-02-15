@@ -652,7 +652,7 @@ async def chat_stream(websocket: WebSocket):
             completion_tokens=completion_tokens,
             total_tokens=total_tokens,
             cost_usd=cost_usd,
-            request_id=f"ws-{id(websocket)}-{int(asyncio.get_event_loop().time())}",
+            request_id=f"ws-{id(websocket)}-{int(asyncio.get_running_loop().time())}",
         )
         
         # Send final message with usage info
