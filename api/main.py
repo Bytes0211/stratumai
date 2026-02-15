@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
@@ -100,6 +100,16 @@ async def root():
         "version": "0.1.0",
         "message": "Frontend not found. API endpoints available at /docs"
     }
+
+
+@app.get("/models")
+async def models_page():
+    """Serve the models catalog page."""
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    models_path = os.path.join(static_dir, "models.html")
+    if os.path.exists(models_path):
+        return FileResponse(models_path)
+    return {"error": "Models page not found"}
 
 
 @app.get("/api/providers", response_model=List[str])
@@ -279,7 +289,7 @@ async def chat_completion(request: ChatCompletionRequest):
                     # Auto-select based on provider
                     summarization_models = {
                         "openai": "gpt-4o-mini",
-                        "anthropic": "claude-3-5-sonnet-20241022",
+                        "anthropic": "claude-3-haiku-20240307",
                         "google": "gemini-2.5-flash",
                         "deepseek": "deepseek-chat",
                         "groq": "llama-3.1-8b-instant",
@@ -633,6 +643,106 @@ async def reset_cost_tracker():
     """Reset cost tracker."""
     cost_tracker.reset()
     return {"message": "Cost tracker reset successfully"}
+
+
+class ProviderModelsInfo(BaseModel):
+    """Models info for a single provider."""
+    models: List[dict]
+    active: bool
+    validation_error: Optional[str] = None
+    validation_time_ms: int = 0
+
+
+class AllModelsResponse(BaseModel):
+    """Response model for all validated models."""
+    providers: Dict[str, ProviderModelsInfo]
+    summary: dict
+
+
+@app.get("/api/all-models")
+async def get_all_validated_models():
+    """
+    Get all validated models across all providers with detailed metadata.
+    
+    Returns models with: provider, cost (input/output), context window,
+    capabilities (vision, reasoning, tools, caching), and active status.
+    """
+    from stratifyai.utils.provider_validator import validate_provider_models
+    from stratifyai.api_key_helper import APIKeyHelper
+    
+    providers_list = [
+        "openai", "anthropic", "google", "deepseek",
+        "groq", "grok", "ollama", "openrouter", "bedrock"
+    ]
+    
+    # Get API key availability
+    api_key_status = APIKeyHelper.check_available_providers()
+    
+    result = {}
+    total_models = 0
+    active_providers = 0
+    
+    # Run validation for each provider in parallel
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor() as pool:
+        validation_tasks = []
+        for provider in providers_list:
+            model_ids = list(MODEL_CATALOG.get(provider, {}).keys())
+            task = loop.run_in_executor(
+                pool,
+                validate_provider_models,
+                provider,
+                model_ids
+            )
+            validation_tasks.append((provider, task))
+        
+        # Gather results
+        for provider, task in validation_tasks:
+            validation_result = await task
+            
+            # Check if provider is active (has API key configured)
+            is_active = api_key_status.get(provider, False)
+            if is_active:
+                active_providers += 1
+            
+            models_list = []
+            catalog = MODEL_CATALOG.get(provider, {})
+            
+            # Use valid models if available, otherwise use catalog
+            model_ids = validation_result["valid_models"] if not validation_result["error"] else list(catalog.keys())
+            
+            for model_id in model_ids:
+                model_info = catalog.get(model_id, {})
+                
+                models_list.append({
+                    "id": model_id,
+                    "provider": provider,
+                    "context_window": model_info.get("context", 0),
+                    "cost_input": model_info.get("cost_input", 0),
+                    "cost_output": model_info.get("cost_output", 0),
+                    "supports_vision": model_info.get("supports_vision", False),
+                    "supports_tools": model_info.get("supports_tools", False),
+                    "supports_caching": model_info.get("supports_caching", False),
+                    "reasoning_model": model_info.get("reasoning_model", False),
+                    "validated": model_id in validation_result["valid_models"],
+                })
+            
+            result[provider] = ProviderModelsInfo(
+                models=models_list,
+                active=is_active,
+                validation_error=validation_result.get("error"),
+                validation_time_ms=validation_result.get("validation_time_ms", 0),
+            )
+            total_models += len(models_list)
+    
+    return AllModelsResponse(
+        providers=result,
+        summary={
+            "total_models": total_models,
+            "total_providers": len(providers_list),
+            "active_providers": active_providers,
+        }
+    )
 
 
 @app.get("/api/health")

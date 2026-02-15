@@ -1,6 +1,6 @@
-# WARP.md
+# AGENTS.md
 
-This file provides guidance to WARP (warp.dev) when working with code in this repository.
+This file provides guidance to AI agents (Warp, Cursor, Windsurf, etc.) when working with code in this repository.
 
 ## Project Overview
 
@@ -86,13 +86,19 @@ Your AWS IAM user/role must have the `bedrock:InvokeModel` permission:
 ```txt
 stratifyai/                             # Project root: /home/scotton/dev/projects/stratifyai
 ├── README.md
-├── WARP.md                             # This file (development guidance)
+├── AGENTS.md                           # This file (AI agent guidance)
 ├── pyproject.toml                      # Package configuration and dependencies
 ├── requirements.txt                    # Python dependencies
 ├── .venv/                              # Virtual environment
+├── .github/workflows/                  # GitHub Actions CI/CD
+│   └── validate-catalog.yml            # Catalog validation on PRs
 ├── api/                                # FastAPI REST API
 │   ├── main.py                         # API endpoints
 │   └── static/index.html               # Web frontend
+├── catalog/                            # Model catalog (community-editable)
+│   ├── models.json                     # Provider model metadata (JSON)
+│   ├── schema.json                     # JSON schema for validation
+│   └── README.md                       # Contribution guidelines
 ├── cli/                                # CLI package
 │   └── stratifyai_cli.py               # Typer CLI implementation
 ├── docs/                               # Documentation
@@ -106,11 +112,14 @@ stratifyai/                             # Project root: /home/scotton/dev/projec
 │   ├── code_reviewer.py
 │   ├── rag_example.py
 │   └── ...                             # Additional examples
+├── scripts/                            # Utility scripts
+│   └── validate_catalog.py             # Catalog validation tool
 ├── tests/                              # Test suite (297+ tests)
 └── stratifyai/                         # Main package
     ├── __init__.py                     # Package exports
+    ├── catalog_manager.py              # Loads models from catalog/models.json
     ├── client.py                       # Unified LLMClient
-    ├── config.py                       # Model catalogs and cost tables
+    ├── config.py                       # Loads catalog via catalog_manager
     ├── models.py                       # Data models (Message, ChatRequest, ChatResponse)
     ├── exceptions.py                   # Custom exceptions
     ├── router.py                       # Intelligent routing
@@ -144,6 +153,7 @@ stratifyai/                             # Project root: /home/scotton/dev/projec
     │   ├── ollama.py                   # Ollama local models
     │   └── bedrock.py                  # AWS Bedrock implementation
     └── utils/                          # Utility modules
+        ├── provider_validator.py       # Provider model validation
         ├── token_counter.py            # Token counting
         ├── file_analyzer.py            # File type analysis
         ├── chunking.py                 # Smart text chunking
@@ -211,9 +221,9 @@ pip freeze > requirements.txt
 
 ## Project Status
 
-**Current Phase:** Phase 7.9 - Web UI Enhancements ✅  
-**Progress:** Phases 1-6 + Phase 7.1-7.9 Complete  
-**Latest Updates:** Phase 7.9 complete - Vision support, smart chunking, markdown rendering, model labels (Feb 5, 2026)
+**Current Phase:** Phase 7.10 - Catalog Modernization ✅  
+**Progress:** Phases 1-6 + Phase 7.1-7.10 Complete  
+**Latest Updates:** Phase 7.10 complete - JSON catalog, automated validation, enhanced validator, documentation (Feb 6, 2026)
 
 ### Completed Phases
 - ✅ Phase 1: Core Implementation (100%)
@@ -342,15 +352,29 @@ pip freeze > requirements.txt
   - Model metadata display (context window, validation status)
   - Category-based model grouping in dropdowns
   - Temperature auto-disable for reasoning models
+- ✅ Phase 7.10: Catalog Modernization & Auto-Sync (100%)
+  - Externalized model catalog to catalog/models.json (JSON format)
+  - catalog_manager.py for loading/caching catalog with deprecation tracking
+  - JSON schema validation (catalog/schema.json)
+  - Community contribution guidelines (catalog/README.md)
+  - Enhanced Anthropic validator using models.list() API
+  - Automated catalog validation in CI (.github/workflows/validate-catalog.yml)
+  - Deprecation fields (deprecated, deprecated_date, replacement_model)
+  - All models use dated IDs (e.g., claude-3-haiku-20240307)
+  - Fixed bug: Smart chunking 404 error (updated to real model)
+  - Validation script (scripts/validate_catalog.py) with schema checks
+  - 7 new files, 3 modified files, ~980 lines of infrastructure
 
-### Current Focus (Week 7+: Feb 5+)
-**Phase 7.9: Web UI Enhancements** ✅ COMPLETE
-- ✅ Vision support with pre-upload validation
-- ✅ Smart chunking toggle with size slider
-- ✅ Markdown rendering for assistant messages
-- ✅ Syntax highlighting for code blocks
-- ✅ Model labels and category grouping
-- ✅ Documentation updates (README, ENTERPRISE_README, api/README, WARP.md)
+### Current Focus (Week 7+: Feb 6+)
+**Phase 7.10: Catalog Modernization** ✅ COMPLETE (Feb 6, 2026)
+- ✅ JSON catalog infrastructure with community guidelines
+- ✅ Automated validation and CI workflows
+- ✅ Enhanced provider validator with API integration
+- ✅ Fixed Anthropic chunking bug (404 error)
+- ✅ Deprecation tracking system ready
+- ✅ Documentation complete (AGENTS.md, README.md, developer-journal.md, CATALOG_MANAGEMENT.md)
+- ⏳ UI deprecation warnings (optional enhancement)
+- ⏳ Weekly auto-sync workflow (optional enhancement)
 
 **Future Phases:**
 - 📝 Phase 8: Production Deployment
@@ -379,7 +403,9 @@ pip freeze > requirements.txt
 - **docs/project-status.md** - Detailed 5-week timeline with phase breakdowns (25 working days)
 - **docs/stratifyai-technical-approach.md** - Comprehensive technical design (1,232 lines)
 - **docs/StratifyAI-Router-Logic.md** - Router strategies, fallback chains, and complexity analysis
-- **WARP.md** - This file (development environment guidance for Warp AI)
+- **docs/CATALOG_MANAGEMENT.md** - Community catalog contribution guide (459 lines)
+- **docs/developer-journal.md** - Implementation log and lessons learned
+- **AGENTS.md** - This file (AI agent guidance for development)
 
 ### Key Documentation Sections
 - **Technical Approach**: Complete architecture, component design, provider implementations

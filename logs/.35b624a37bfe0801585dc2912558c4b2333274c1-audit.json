@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/home/scotton/dev/projects/stratifyai/logs/.35b624a37bfe0801585dc2912558c4b2333274c1-audit.json",
+    "files": [
+        {
+            "date": 1770818302348,
+            "name": "/home/scotton/dev/projects/stratifyai/logs/mcp-puppeteer-2026-02-11.log",
+            "hash": "9c8748a42a2716f880c86bc6080f3c28dfa75273e2c2c98f07133e6b908fc045"
+        }
+    ],
+    "hashType": "sha256"
+}
