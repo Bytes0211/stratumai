@@ -89,7 +89,7 @@ def _validate_openai(model_ids: List[str], api_key: Optional[str] = None) -> Dic
 
 
 def _validate_anthropic(model_ids: List[str], api_key: Optional[str] = None) -> Dict[str, Any]:
-    """Validate Anthropic credentials (no models list API available)."""
+    """Validate Anthropic models using models.list() API."""
     result = _init_result()
     start_time = time.time()
     
@@ -102,13 +102,26 @@ def _validate_anthropic(model_ids: List[str], api_key: Optional[str] = None) -> 
             result["valid_models"] = model_ids
             return result
         
-        # Anthropic doesn't have a models list API, so we just verify auth
-        # by checking if the key format looks valid
-        if key.startswith("sk-ant-"):
-            result["valid_models"] = model_ids
-        else:
-            result["error"] = "Invalid API key format"
-            result["valid_models"] = model_ids
+        # Use Anthropic's models.list() API (available as of SDK v0.25.0+)
+        client = anthropic.Anthropic(api_key=key)
+        try:
+            models_response = client.models.list()
+            available_ids = {model.id for model in models_response.data}
+            
+            for model_id in model_ids:
+                if model_id in available_ids:
+                    result["valid_models"].append(model_id)
+                else:
+                    result["invalid_models"].append(model_id)
+        except AttributeError:
+            # Fallback for older SDK versions without models.list()
+            # Just verify key format
+            if key.startswith("sk-ant-"):
+                result["valid_models"] = model_ids
+                result["error"] = "SDK too old - upgrade anthropic package for model validation"
+            else:
+                result["error"] = "Invalid API key format"
+                result["valid_models"] = model_ids
                 
     except ImportError:
         result["error"] = "anthropic package not installed"

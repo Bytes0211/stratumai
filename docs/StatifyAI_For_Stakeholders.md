@@ -30,9 +30,11 @@ It helps organizations use AI more strategically and efficiently.
 ## **Key Features**
 
 ### **Unified Access**
+
 A single interface that works with all major AI providers.
 
 ### **Smart Model Selection**
+
 StratifyAI automatically picks the best model based on:
 
 - Cost  
@@ -41,18 +43,23 @@ StratifyAI automatically picks the best model based on:
 - Capabilities (like vision or reasoning)
 
 ### **Cost Tracking**
+
 The platform monitors spending so teams can stay within budget.
 
 ### **Caching**
+
 StratifyAI saves previous answers so repeated requests don’t cost extra.
 
 ### **Streaming Responses**
+
 Supports real‑time, token‑by‑token output from AI models.
 
 ### **Large File Processing**
+
 Handles big documents by breaking them into smaller, manageable pieces.
 
 ### **Document Extraction**
+
 Understands and summarizes:
 
 - Spreadsheets  
@@ -62,12 +69,15 @@ Understands and summarizes:
 - Long text documents  
 
 ### **RAG (Retrieval‑Augmented Generation)**
+
 Combines AI with search to produce more accurate, grounded answers.
 
 ### **Command Line Tool**
+
 Developers can use StratifyAI directly from their terminal.
 
 ### **Optional Web Interface**
+
 A visual dashboard for interacting with the system.
 
 ---

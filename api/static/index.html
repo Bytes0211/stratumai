@@ -396,6 +396,9 @@
                         <span>Total Cost:</span>
                         <span id="cost-total">$0.0000</span>
                     </div>
+                    <div class="form-group" style="margin-top: 15px; margin-bottom: 0;">
+                        <a href="/models" class="view-models-btn" style="display: block; text-align: center; background: #667eea; color: white; padding: 10px; border-radius: 5px; text-decoration: none; font-weight: 500; transition: background 0.3s;">📋 View Model Catalog</a>
+                    </div>
                 </div>
             </div>
             
@@ -426,6 +429,11 @@
                 
                 <div class="form-group">
                     <button id="send-btn">Send Message</button>
+                </div>
+                
+                <div class="message-history" id="message-history" style="margin-top: 20px; display: none;">
+                    <h4 style="color: #666; margin-bottom: 10px; font-size: 14px;">📜 Recent Messages (Last 10)</h4>
+                    <div id="history-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 5px; padding: 10px; background: #fafafa;"></div>
                 </div>
             </div>
         </div>
@@ -727,6 +735,38 @@
             gfm: true
         });
         
+        // Update message history display
+        function updateMessageHistory() {
+            const historyContainer = document.getElementById('message-history');
+            const historyList = document.getElementById('history-list');
+            
+            // Filter out system messages and get last 10
+            const recentMessages = messages.slice(-10);
+            
+            if (recentMessages.length === 0) {
+                historyContainer.style.display = 'none';
+                return;
+            }
+            
+            historyContainer.style.display = 'block';
+            
+            let html = '';
+            for (const msg of recentMessages) {
+                const roleIcon = msg.role === 'user' ? '👤' : '🤖';
+                const roleColor = msg.role === 'user' ? '#667eea' : '#22c55e';
+                // Truncate long messages
+                const truncated = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
+                // Escape HTML
+                const escaped = truncated.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                html += `<div style="padding: 6px 0; border-bottom: 1px solid #eee; font-size: 13px;">
+                    <span style="color: ${roleColor}; font-weight: 500;">${roleIcon} ${msg.role}:</span>
+                    <span style="color: #444;">${escaped}</span>
+                </div>`;
+            }
+            
+            historyList.innerHTML = html;
+        }
+        
         // Add message to chat
         function addMessage(role, content, details = null) {
             const container = document.getElementById('chat-container');
@@ -761,6 +801,7 @@
             // Don't add error messages to conversation history
             if (role !== 'error' && role !== 'system') {
                 messages.push({role, content});
+                updateMessageHistory();
             }
         }
         
@@ -1073,6 +1114,7 @@
         document.getElementById('reset-chat').addEventListener('click', () => {
             messages = [];
             document.getElementById('chat-container').innerHTML = '';
+            updateMessageHistory();
             addMessage('system', 'Chat reset. Start a new conversation.');
         });
         
