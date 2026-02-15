@@ -177,7 +177,12 @@ async for chunk in client.chat_stream("Write a story"):
 
 ```
 stratifyai/
+├── catalog/              # Model catalog (community-editable)
+│   ├── models.json       # Provider model metadata
+│   ├── schema.json       # JSON schema
+│   └── README.md         # Contribution guidelines
 ├── llm_abstraction/      # Core package
+│   ├── catalog_manager.py # Loads models from catalog/
 │   ├── providers/        # Provider implementations (9 providers)
 │   ├── router.py         # Intelligent routing
 │   ├── models.py         # Data models
@@ -188,8 +193,30 @@ stratifyai/
 ├── cli/                  # Typer CLI
 ├── api/                  # Optional FastAPI server
 ├── examples/             # Usage examples
+├── scripts/              # Validation and maintenance tools
 └── docs/                 # Technical documentation
 ```
+
+---
+
+## Model Catalog
+
+StratifyAI uses a **community-editable JSON catalog** (`catalog/models.json`) as the source of truth for provider model metadata. This enables:
+
+- **Easy Updates**: Submit PRs to add/update/deprecate models
+- **Automated Validation**: CI validates all changes via JSON schema
+- **Deprecation Tracking**: Built-in lifecycle management
+- **Dated Model IDs**: All models use dated IDs (e.g., `claude-3-haiku-20240307`) for reproducibility
+
+**Contributing:**
+
+To update the catalog (add new models, mark deprecations, update pricing):
+
+1. Edit `catalog/models.json`
+2. Validate: `python scripts/validate_catalog.py`
+3. Submit PR (CI automatically validates)
+
+See [docs/CATALOG_MANAGEMENT.md](docs/CATALOG_MANAGEMENT.md) for full contribution guidelines.
 
 ---
 
