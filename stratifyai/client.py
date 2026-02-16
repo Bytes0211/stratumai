@@ -217,7 +217,8 @@ class LLMClient:
             provider = self._detect_provider(request.model)
             self._initialize_provider(provider)
         
-        return self._provider_instance.chat_completion_stream(request)
+        async for chunk in self._provider_instance.chat_completion_stream(request):
+            yield chunk
     
     def chat_sync(
         self,

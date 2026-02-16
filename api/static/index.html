@@ -284,6 +284,74 @@
             margin-bottom: 10px;
         }
         
+        /* Tabs styling */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e5e5e5;
+            margin-bottom: 15px;
+        }
+        
+        .tab-btn {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.2s;
+            width: auto;
+        }
+        
+        .tab-btn:hover {
+            color: #667eea;
+            background: #f5f5f5;
+        }
+        
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: transparent;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .history-item {
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .history-role {
+            font-weight: 500;
+            margin-right: 8px;
+        }
+        
+        .history-role.user { color: #667eea; }
+        .history-role.assistant { color: #22c55e; }
+        
+        .history-content {
+            color: #444;
+        }
+        
+        .history-empty {
+            color: #999;
+            font-style: italic;
+            padding: 15px;
+            text-align: center;
+        }
+        
         .validation-status {
             font-size: 13px;
             margin-top: 8px;
@@ -347,39 +415,74 @@
         
         <div class="main-grid">
             <div class="sidebar">
-                <h3>Model Configuration</h3>
-                
-                <div class="form-group">
-                    <label for="provider">Provider</label>
-                    <select id="provider">
-                        <option value="">Select Provider...</option>
-                    </select>
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="config">⚙️ Config</button>
+                    <button class="tab-btn" data-tab="files">📁 Files</button>
+                    <button class="tab-btn" data-tab="history">📜 History</button>
+                    <button class="tab-btn" data-tab="cost">💰 Cost</button>
                 </div>
                 
-                <div class="form-group">
-                    <label for="model">Model</label>
-                    <select id="model">
-                        <option value="">Select Model...</option>
-                    </select>
-                    <div id="validation-status" class="validation-status" style="display: none;"></div>
+                <!-- Config Tab -->
+                <div id="tab-config" class="tab-content active">
+                    <div class="form-group">
+                        <label for="provider">Provider</label>
+                        <select id="provider">
+                            <option value="">Select Provider...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="model">Model</label>
+                        <select id="model">
+                            <option value="">Select Model...</option>
+                        </select>
+                        <div id="validation-status" class="validation-status" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="temperature">Temperature: <span id="temp-value">0.7</span></label>
+                        <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="max-tokens">Max Tokens (optional)</label>
+                        <input type="number" id="max-tokens" placeholder="Leave empty for default">
+                    </div>
+                    
+                    <div class="form-group">
+                        <button id="reset-chat">Reset Chat</button>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="temperature">Temperature: <span id="temp-value">0.7</span></label>
-                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                <!-- Files Tab -->
+                <div id="tab-files" class="tab-content">
+                    <div class="form-group">
+                        <label for="file-input" id="file-input-label">Attach File - Text files only</label>
+                        <input type="file" id="file-input" accept=".txt,.py,.js,.json,.csv,.log,.md,.yaml,.yml,.xml,.html,.css,.java,.go,.rs,.cpp,.c,.h">
+                        <div id="file-status" style="margin-top: 5px; font-size: 13px; color: #666;"></div>
+                    </div>
+                    
+                    <div class="form-group" style="display: flex; gap: 10px; align-items: center;">
+                        <input type="checkbox" id="chunked" style="width: auto;">
+                        <label for="chunked" style="margin: 0; cursor: pointer; font-size: 13px;">Enable Smart Chunking</label>
+                    </div>
+                    
+                    <div class="form-group" id="chunk-size-group" style="display: none;">
+                        <label for="chunk-size">Chunk Size: <span id="chunk-size-value">50,000</span> chars</label>
+                        <input type="range" id="chunk-size" min="10000" max="100000" step="10000" value="50000">
+                        <div style="font-size: 11px; color: #666; margin-top: 5px;">💡 Smaller chunks = more summaries</div>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="max-tokens">Max Tokens (optional)</label>
-                    <input type="number" id="max-tokens" placeholder="Leave empty for default">
+                <!-- History Tab -->
+                <div id="tab-history" class="tab-content">
+                    <div id="history-list" style="max-height: 350px; overflow-y: auto;">
+                        <div class="history-empty">No messages yet</div>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <button id="reset-chat">Reset Chat</button>
-                </div>
-                
-                <div class="cost-tracker">
-                    <h4>Model Cost Tracking</h4>
+                <!-- Cost Tab -->
+                <div id="tab-cost" class="tab-content">
                     <div class="cost-row">
                         <span>Context:</span>
                         <span id="context-window">-</span>
@@ -411,30 +514,9 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="file-input" id="file-input-label">Attach File (optional) - Text files only</label>
-                    <input type="file" id="file-input" accept=".txt,.py,.js,.json,.csv,.log,.md,.yaml,.yml,.xml,.html,.css,.java,.go,.rs,.cpp,.c,.h">
-                    <div id="file-status" style="margin-top: 5px; font-size: 13px; color: #666;"></div>
-                </div>
-                
-                <div class="form-group" style="display: flex; gap: 10px; align-items: center;">
-                    <input type="checkbox" id="chunked" style="width: auto;">
-                    <label for="chunked" style="margin: 0; cursor: pointer;">Enable Smart Chunking (reduces token usage for large files)</label>
-                </div>
-                
-                <div class="form-group" id="chunk-size-group" style="display: none;">
-                    <label for="chunk-size">Chunk Size (characters): <span id="chunk-size-value">50000</span></label>
-                    <input type="range" id="chunk-size" min="10000" max="100000" step="10000" value="50000">
-                    <div style="font-size: 12px; color: #666; margin-top: 5px;">💡 Smaller chunks = more summaries, larger chunks = fewer summaries</div>
-                </div>
-                
-                <div class="form-group">
                     <button id="send-btn">Send Message</button>
                 </div>
                 
-                <div class="message-history" id="message-history" style="margin-top: 20px; display: none;">
-                    <h4 style="color: #666; margin-bottom: 10px; font-size: 14px;">📜 Recent Messages (Last 10)</h4>
-                    <div id="history-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 5px; padding: 10px; background: #fafafa;"></div>
-                </div>
             </div>
         </div>
     </div>
@@ -573,6 +655,7 @@
                     select.appendChild(option);
                     
                     validationStatus.className = 'validation-status warning';
+                    validationStatus.style.display = 'block';
                     if (validation && validation.error) {
                         validationStatus.textContent = `⚠️ ${validation.error}`;
                     } else {
@@ -625,18 +708,21 @@
                         });
                     });
                     
-                    // Display validation feedback
+                    // Display validation feedback - always show status after load
+                    validationStatus.style.display = 'block';
                     if (validation) {
                         if (validation.error) {
                             validationStatus.className = 'validation-status warning';
                             validationStatus.textContent = `⚠️ Default models displayed. Could not validate models.`;
                         } else {
+                            // Success - clear any previous warnings
                             validationStatus.className = 'validation-status success';
                             validationStatus.textContent = `✓ Validated ${models.length} models (${validation.validation_time_ms}ms)`;
                         }
                     } else {
-                        // Fallback if no validation data
-                        validationStatus.style.display = 'none';
+                        // No validation data - show neutral status
+                        validationStatus.className = 'validation-status';
+                        validationStatus.textContent = `ℹ️ ${models.length} models loaded`;
                     }
                 }
             } catch (error) {
@@ -735,32 +821,41 @@
             gfm: true
         });
         
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active from all tabs and contents
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Activate clicked tab and its content
+                btn.classList.add('active');
+                document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+            });
+        });
+        
         // Update message history display
         function updateMessageHistory() {
-            const historyContainer = document.getElementById('message-history');
             const historyList = document.getElementById('history-list');
             
-            // Filter out system messages and get last 10
-            const recentMessages = messages.slice(-10);
+            // Filter out system messages and get last 15
+            const recentMessages = messages.slice(-15);
             
             if (recentMessages.length === 0) {
-                historyContainer.style.display = 'none';
+                historyList.innerHTML = '<div class="history-empty">No messages yet</div>';
                 return;
             }
-            
-            historyContainer.style.display = 'block';
             
             let html = '';
             for (const msg of recentMessages) {
                 const roleIcon = msg.role === 'user' ? '👤' : '🤖';
-                const roleColor = msg.role === 'user' ? '#667eea' : '#22c55e';
                 // Truncate long messages
-                const truncated = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
+                const truncated = msg.content.length > 80 ? msg.content.substring(0, 80) + '...' : msg.content;
                 // Escape HTML
                 const escaped = truncated.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                html += `<div style="padding: 6px 0; border-bottom: 1px solid #eee; font-size: 13px;">
-                    <span style="color: ${roleColor}; font-weight: 500;">${roleIcon} ${msg.role}:</span>
-                    <span style="color: #444;">${escaped}</span>
+                html += `<div class="history-item">
+                    <span class="history-role ${msg.role}">${roleIcon} ${msg.role}:</span>
+                    <span class="history-content">${escaped}</span>
                 </div>`;
             }
             

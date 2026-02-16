@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 import tomllib
 from typing import Optional, List, Dict
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -21,6 +22,7 @@ load_dotenv()
 from stratifyai import LLMClient, ChatRequest, Message, ProviderType
 from stratifyai.cost_tracker import CostTracker
 from stratifyai.config import MODEL_CATALOG
+from stratifyai.catalog_manager import load_catalog, get_catalog_version, get_catalog_updated
 from stratifyai.utils.reasoning_detector import is_reasoning_model, get_temperature_for_model
 
 # Configure logging
@@ -87,8 +89,15 @@ else:
 # Global cost tracker
 cost_tracker = CostTracker()
 
-# Mount static files
+# Mount static files - serve both legacy static assets and new SPA build
 static_dir = os.path.join(os.path.dirname(__file__), "static")
+dist_dir = os.path.join(static_dir, "dist")
+
+# Check for SPA build first (Vite outputs to dist/)
+if os.path.exists(dist_dir):
+    # Mount dist assets at root for SPA
+    app.mount("/assets", StaticFiles(directory=os.path.join(dist_dir, "assets")), name="assets")
+# Always mount static for logos and legacy files
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -132,12 +141,25 @@ class ErrorResponse(BaseModel):
     error_type: str
 
 
+def _get_spa_index() -> str | None:
+    """Get path to SPA index.html if it exists."""
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    # Check for SPA build first
+    spa_index = os.path.join(static_dir, "dist", "index.html")
+    if os.path.exists(spa_index):
+        return spa_index
+    # Fall back to legacy index.html
+    legacy_index = os.path.join(static_dir, "index.html")
+    if os.path.exists(legacy_index):
+        return legacy_index
+    return None
+
+
 @app.get("/")
 async def root():
-    """Serve the frontend interface."""
-    static_dir = os.path.join(os.path.dirname(__file__), "static")
-    index_path = os.path.join(static_dir, "index.html")
-    if os.path.exists(index_path):
+    """Serve the frontend interface (SPA or legacy)."""
+    index_path = _get_spa_index()
+    if index_path:
         return FileResponse(index_path)
     return {
         "name": "StratifyAI API",
@@ -148,7 +170,12 @@ async def root():
 
 @app.get("/models")
 async def models_page():
-    """Serve the models catalog page."""
+    """Serve the models catalog page (SPA catch-all or legacy)."""
+    # For SPA, return index.html for client-side routing
+    index_path = _get_spa_index()
+    if index_path and "dist" in index_path:
+        return FileResponse(index_path)
+    # Legacy: serve models.html
     static_dir = os.path.join(os.path.dirname(__file__), "static")
     models_path = os.path.join(static_dir, "models.html")
     if os.path.exists(models_path):
@@ -206,6 +233,20 @@ async def list_models(provider: str):
     
     validated_models = validation_data["models"]
     validation_result = validation_data["validation_result"]
+    
+    # Determine api_key_set based on error message
+    error_msg = validation_result.get("error", "")
+    api_key_set = not (
+        error_msg and (
+            "not configured" in error_msg.lower() or
+            "api key" in error_msg.lower() or
+            "api_key" in error_msg.lower()
+        )
+    )
+    
+    # Add api_key_set and validated to validation result for frontend
+    validation_result["api_key_set"] = api_key_set
+    validation_result["validated"] = validation_result["error"] is None
     
     # Log validation result
     if validation_result["error"]:
@@ -296,14 +337,16 @@ async def chat_completion(request: ChatCompletionRequest):
             for msg in request.messages
         ]
         
-        # Process file if provided
+        # Process file if provided (text files only - images are handled in message content by frontend)
         if request.file_content and request.file_name:
+            logger.info(f"Processing file attachment: {request.file_name} (content length: {len(request.file_content)} chars)")
             from stratifyai.summarization import summarize_file_async
             from stratifyai.utils.file_analyzer import analyze_file
             from pathlib import Path
             import tempfile
             import base64
             
+            # Handle text files (images are now formatted in message content by frontend)
             # Detect if content is base64 encoded or plain text
             try:
                 # Try to decode as base64
@@ -466,7 +509,11 @@ async def chat_completion(request: ChatCompletionRequest):
         
         # Initialize client and make request (BUG-003: use cached client)
         client = get_client(request.provider)
+        
+        # Track latency for non-streaming
+        start_time = time.perf_counter()
         response = await client.chat_completion(chat_request)
+        latency_ms = (time.perf_counter() - start_time) * 1000
         
         # Track cost
         cost_tracker.add_entry(
@@ -492,6 +539,8 @@ async def chat_completion(request: ChatCompletionRequest):
                 "prompt_tokens": response.usage.prompt_tokens,
                 "completion_tokens": response.usage.completion_tokens,
                 "total_tokens": response.usage.total_tokens,
+                "cost_usd": response.usage.cost_usd,
+                "latency_ms": round(latency_ms, 2),
             },
             cost_usd=response.usage.cost_usd,
         )
@@ -585,12 +634,101 @@ async def chat_stream(websocket: WebSocket):
         messages_data = request_data.get("messages", [])
         requested_temperature = request_data.get("temperature")
         max_tokens = request_data.get("max_tokens")
+        file_content = request_data.get("file_content")
+        file_name = request_data.get("file_name")
+        
+        # Debug logging
+        logger.info(f"[WebSocket] Request keys: {list(request_data.keys())}")
+        logger.info(f"[WebSocket] Has file: file_content={bool(file_content)}, file_name={file_name}")
+        chunked = request_data.get("chunked", False)
+        chunk_size = request_data.get("chunk_size", 50000)
         
         # Convert messages
         messages = [
             Message(role=msg["role"], content=msg["content"])
             for msg in messages_data
         ]
+        
+        # Process file if provided (text files only - images are handled in message content by frontend)
+        if file_content and file_name:
+            logger.info(f"[WebSocket] Processing file attachment: {file_name} (content length: {len(file_content)} chars)")
+            from stratifyai.summarization import summarize_file_async
+            from stratifyai.utils.file_analyzer import analyze_file
+            from pathlib import Path
+            import tempfile
+            import base64
+            
+            # Handle text files (images are now formatted in message content by frontend)
+            # Detect if content is base64 encoded or plain text
+            try:
+                # Try to decode as base64
+                file_bytes = base64.b64decode(file_content)
+                file_text = file_bytes.decode('utf-8')
+            except Exception:
+                # If decoding fails, assume it's plain text
+                file_text = file_content
+            
+            # Apply chunking if enabled
+            if chunked:
+                logger.info(f"[WebSocket] Chunking file {file_name} (size: {len(file_text)} chars, chunk_size: {chunk_size})")
+                
+                # Create temporary file for analysis
+                with tempfile.NamedTemporaryFile(mode='w', suffix=Path(file_name).suffix, delete=False) as tmp_file:
+                    tmp_file.write(file_text)
+                    tmp_path = Path(tmp_file.name)
+                
+                try:
+                    # Analyze file
+                    analysis = analyze_file(tmp_path, provider, model)
+                    logger.info(f"[WebSocket] File analysis: type={analysis.file_type.value}, tokens={analysis.estimated_tokens}")
+                    
+                    # Perform chunking and summarization
+                    summarization_models = {
+                        "openai": "gpt-4o-mini",
+                        "anthropic": "claude-3-haiku-20240307",
+                        "google": "gemini-2.5-flash",
+                        "deepseek": "deepseek-chat",
+                        "groq": "llama-3.1-8b-instant",
+                        "grok": "grok-4-1-fast-non-reasoning",
+                        "openrouter": "google/gemini-2.5-flash",
+                        "ollama": "llama3.2",
+                        "bedrock": "anthropic.claude-3-5-haiku-20241022-v1:0",
+                    }
+                    summarization_model = summarization_models.get(provider, "gpt-4o-mini")
+                    
+                    client = get_client(provider)
+                    
+                    # Get context from last user message if available
+                    context = None
+                    if messages and messages[-1].role == "user":
+                        context = messages[-1].content
+                    
+                    # Run async summarization
+                    result = await summarize_file_async(
+                        file_text,
+                        client,
+                        chunk_size,
+                        summarization_model,
+                        context,
+                        False
+                    )
+                    
+                    file_content_to_use = result['summary']
+                    logger.info(f"[WebSocket] Chunking complete: {result['reduction_percentage']}% reduction")
+                finally:
+                    import os
+                    os.unlink(tmp_path)
+            else:
+                file_content_to_use = file_text
+            
+            # Append file content to last user message or create new message
+            if messages and messages[-1].role == "user":
+                messages[-1].content = f"{messages[-1].content}\n\n[File: {file_name}]\n\n{file_content_to_use}"
+            else:
+                messages.append(Message(
+                    role="user",
+                    content=f"[File: {file_name}]\n\n{file_content_to_use}"
+                ))
         
         # Determine temperature using shared reasoning model detector (BUG-002)
         reasoning = is_reasoning_model(provider, model, MODEL_CATALOG)
@@ -613,6 +751,9 @@ async def chat_stream(websocket: WebSocket):
         
         # Initialize client (BUG-003: use cached client for connection pooling)
         client = get_client(provider)
+        
+        # Track latency
+        start_time = time.perf_counter()
         
         full_content = ""
         prompt_tokens = 0
@@ -655,6 +796,9 @@ async def chat_stream(websocket: WebSocket):
             request_id=f"ws-{id(websocket)}-{int(asyncio.get_running_loop().time())}",
         )
         
+        # Calculate latency
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        
         # Send final message with usage info
         await websocket.send_json({
             "content": "",
@@ -665,6 +809,7 @@ async def chat_stream(websocket: WebSocket):
                 "completion_tokens": completion_tokens,
                 "total_tokens": total_tokens,
                 "cost_usd": cost_usd,
+                "latency_ms": round(latency_ms, 2),
             },
         })
         
@@ -797,6 +942,41 @@ async def get_all_validated_models():
             "active_providers": active_providers,
         }
     )
+
+
+@app.get("/api/catalog")
+async def get_catalog():
+    """Get the full model catalog with metadata.
+    
+    Returns data in frontend-compatible format:
+    { [provider]: { [modelId]: CatalogModel } }
+    """
+    catalog = load_catalog()
+    providers = catalog.get("providers", {})
+    
+    # Transform to frontend-expected format
+    result = {}
+    for provider, models in providers.items():
+        result[provider] = {}
+        for model_id, model_data in models.items():
+            result[provider][model_id] = {
+                "model_id": model_id,
+                "display_name": model_data.get("display_name", model_id),
+                "input_cost_per_1m": model_data.get("cost_input", 0),
+                "output_cost_per_1m": model_data.get("cost_output", 0),
+                "context_window": model_data.get("context", 0),
+                "max_output_tokens": model_data.get("max_output", model_data.get("context", 0) // 4),
+                "supports_vision": model_data.get("supports_vision", False),
+                "supports_tools": model_data.get("supports_tools", False),
+                "is_reasoning_model": model_data.get("reasoning_model", False),
+                "category": model_data.get("category", ""),
+                "description": model_data.get("description", ""),
+                "deprecated": model_data.get("deprecated", False),
+                "deprecated_date": model_data.get("deprecated_date"),
+                "replacement_model": model_data.get("replacement_model"),
+            }
+    
+    return result
 
 
 @app.get("/api/health")
