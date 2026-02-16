@@ -8,6 +8,7 @@
   import { fileStore, fileActions } from '$lib/stores/file';
   import { createChatStream } from '$lib/api/websocket';
   import { chat as chatApi } from '$lib/api/client';
+  import type { ChatRequest } from '$lib/api/types';
   
   let inputValue = '';
   let textareaRef: HTMLTextAreaElement;
@@ -115,12 +116,12 @@
     
     // Build request
     const messages = chatActions.getApiMessages();
-    const request: Record<string, unknown> = {
+    const request: ChatRequest = {
       provider: config.provider,
       model: config.model,
       messages,
       temperature: config.effectiveTemperature,
-      max_tokens: config.maxTokens ?? undefined,
+      max_tokens: config.maxTokens,
       stream: config.stream,
       chunked: config.chunked,
       chunk_size: config.chunkSize,
@@ -140,8 +141,8 @@
         // For images: format as [IMAGE:mime_type]\nbase64_data in message content
         // Extract base64 data from data URL (format: data:image/jpeg;base64,<data>)
         
-        // Validate data URL format
-        const dataUrlPattern = /^data:(image\/[a-z]+);base64,(.+)$/;
+        // Validate data URL format (supports image/jpeg, image/png, image/gif, image/webp, etc.)
+        const dataUrlPattern = /^data:(image\/[a-z0-9+.-]+);base64,([A-Za-z0-9+/=]+)$/;
         const match = effectiveFile.content.match(dataUrlPattern);
         
         if (!match) {
