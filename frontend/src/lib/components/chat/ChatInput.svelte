@@ -130,13 +130,6 @@
     // Handle file attachment (local or from shared store)
     const hasAttachment = effectiveFile !== null;
     if (hasAttachment && effectiveFile) {
-      console.log('File attachment:', {
-        name: effectiveFile.name,
-        type: effectiveFile.type,
-        isImage: effectiveFile.isImage,
-        contentLength: effectiveFile.content.length
-      });
-      
       if (effectiveFile.isImage) {
         // For images: format as [IMAGE:mime_type]\nbase64_data in message content
         // Extract base64 data from data URL (format: data:image/jpeg;base64,<data>)
