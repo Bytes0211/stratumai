@@ -181,7 +181,6 @@
           chatActions.appendStreamingContent(chunk);
         },
         onComplete: (usage) => {
-          console.log('Stream complete, usage:', usage);
           chatActions.completeStreaming(usage);
           if (usage) {
             costActions.addEntry(
@@ -213,7 +212,9 @@
       // Non-streaming mode
       try {
         const response = await chatApi(request);
-        chatActions.addAssistantMessage(response.content, response.usage);
+        // Merge cost_usd into usage for per-message display
+        const usageWithCost = { ...response.usage, cost_usd: response.cost_usd };
+        chatActions.addAssistantMessage(response.content, usageWithCost);
         costActions.addEntry(
           response.provider,
           response.model,

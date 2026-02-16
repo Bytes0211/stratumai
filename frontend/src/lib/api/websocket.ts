@@ -39,8 +39,6 @@ export function createChatStream(
       }
       
       if (data.done) {
-        console.log('WebSocket done message received:', data);
-        console.log('Usage data:', data.usage);
         callbacks.onComplete(data.usage);
       }
     } catch (err) {

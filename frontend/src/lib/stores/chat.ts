@@ -100,11 +100,13 @@ function createChatStore() {
       completeStreaming(usage?: UsageStats) {
         const id = get(streamingMessageId);
         const content = get(streamingContent);
-        if (id && content) {
+        if (id) {
+          // Save message even if empty (e.g., safety filter, token limit)
+          const finalContent = content || '(empty response)';
           messages.update(msgs => [...msgs, {
             id,
             role: 'assistant',
-            content,
+            content: finalContent,
             timestamp: new Date(),
             usage,
           }]);
@@ -128,10 +130,12 @@ function createChatStore() {
       },
       
       getApiMessages(): Message[] {
-        return get(messages).map(m => ({
-          role: m.role,
-          content: m.content,
-        }));
+        return get(messages)
+          .filter(m => !m.error)
+          .map(m => ({
+            role: m.role,
+            content: m.content,
+          }));
       },
     },
   };
