@@ -78,7 +78,7 @@ export async function chat(req: ChatRequest): Promise<ChatResponse> {
 }
 
 export async function getCosts(): Promise<CostSummary> {
-  return request<CostSummary>('/costs');
+  return request<CostSummary>('/cost');
 }
 
 export async function getHealth(): Promise<{ status: string; version: string }> {

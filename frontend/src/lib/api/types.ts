@@ -52,9 +52,8 @@ export interface ModelListResponse {
   validation: {
     validated: boolean;
     api_key_set: boolean;
-    models_checked: number;
-    valid_models: number;
-    source: string;
+    validation_time_ms: number;
+    error: string | null;
   };
 }
 
@@ -87,8 +86,23 @@ export interface CostSummary {
   total_cost: number;
   total_tokens: number;
   total_calls: number;
-  by_provider: Record<string, { cost: number; tokens: number; calls: number }>;
-  by_model: Record<string, { cost: number; tokens: number; calls: number }>;
+  cost_by_provider: Record<string, number>;
+  cost_by_model: Record<string, number>;
+  tokens_by_provider: Record<string, number>;
+  cache_stats: {
+    total_cache_read_tokens: number;
+    total_cache_creation_tokens: number;
+    cache_hit_rate_percent: number;
+  };
+  budget_status: {
+    budget_set: boolean;
+    total_cost: number;
+    budget_limit?: number;
+    remaining?: number;
+    percent_used?: number;
+    over_budget?: boolean;
+    alert_threshold?: number;
+  };
 }
 
 export interface StreamMessage {
